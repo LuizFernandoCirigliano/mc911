@@ -110,32 +110,37 @@ def t_error(t):
     t.lexer.skip(1)
 
 
+import sys
 
+data = ""
 
 # Build the lexer
 lexer = lex.lex()
 
+if len(sys.argv) == 1:
+    # Test it out
+    data = '''
+    //3 + 4 * 10
+      + -20 *2 ->
+      ; [ ] =
+      syn aba //oi
+      // olarrrr
+      oi
+      /* linha ignorada
+      "aaa"
+      fim */
+      a /* oooi */
+      'x'
+      "Hello world"
+      /* oie \n */
+      aa a
+      \\aa
+    '''
+else:
+    file_name = sys.argv[1]
+    file = open(file_name)
+    data = file.read()
 
-# Test it out
-data = '''
-//3 + 4 * 10
-  + -20 *2 ->
-  ; [ ] =
-  syn aba //oi
-  // olarrrr
-  oi
-  /* linha ignorada
-  "aaa"
-  fim */
-  a /* oooi */
-  'x'
-  "Hello world"
-  /* oie */
-  aa a
-  \\aa
-'''
-print(data)
-# Give the lexer some input
 lexer.input(data)
 
 # Tokenize
