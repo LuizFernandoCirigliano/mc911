@@ -19,11 +19,16 @@ tokens = [
    'SCONST'
 ]
 
-reserved = {
-   'syn' : 'SYN',
-   'dcl' : 'DCL',
-   'print' : 'PRINT'
-}
+reserved = {'elsif': 'ELSIF', 'int': 'INT', 'fi': 'FI', 'false': 'FALSE', 'print': 'PRINT',
+            'bool': 'BOOL', 'else': 'ELSE', 'end': 'END', 'od': 'OD', 'loc': 'LOC',
+            'by': 'BY', 'true': 'TRUE', 'length': 'LENGTH', 'if': 'IF', 'return': 'RETURN',
+            'in': 'IN', 'syn': 'SYN', 'returns': 'RETURNS', 'null': 'NULL', 'exit': 'EXIT',
+            'upper': 'UPPER', 'do': 'DO', 'result': 'RESULT', 'abs': 'ABS', 'asc': 'ASC',
+            'while': 'WHILE', 'array': 'ARRAY', 'chars': 'CHARS', 'for': 'FOR', 'down': 'DOWN',
+            'proc': 'PROC', 'read': 'READ', 'char': 'CHAR', 'type': 'TYPE', 'then': 'THEN',
+            'to': 'TO', 'ref': 'REF', 'lower': 'LOWER', 'num': 'NUM', 'dcl': 'DCL'}
+
+
 
 tokens += list(reserved.values())
 # Regular expression rules for simple tokens
@@ -135,6 +140,8 @@ if len(sys.argv) == 1:
       /* oie \n */
       aa a
       \\aa
+      "DCL"
+      /*DCL*/
     '''
 else:
     file_name = sys.argv[1]
