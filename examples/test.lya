@@ -1,0 +1,11 @@
+dcl x, y int;
+read(x,y);
+
+dcl c char = '^(32)';
+dcl d char = '\\';
+dcl e char = if x != y then '\t' else '.' fi;
+dcl f char = if x == y then '\n' elsif (x + y) % 2 == 0 then '^(97)' else 'Q' fi;
+print(x,c,y,d,f,e);
+
+dcl s chars[20] = "asc6759ij\n";
+print(s);
