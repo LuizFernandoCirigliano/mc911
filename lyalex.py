@@ -16,7 +16,9 @@ tokens = [
    'RBRACKET',
    'ID',
    'CCONST',
-   'SCONST'
+   'SCONST',
+    'COMMA',
+    'GT', 'LT', 'GTE', 'LTE', 'EQ'
 ]
 
 reserved = {'elsif': 'ELSIF', 'int': 'INT', 'fi': 'FI', 'false': 'FALSE', 'print': 'PRINT',
@@ -43,6 +45,12 @@ t_ASSIGN = r'\='
 t_SEMI= r'\;'
 t_LBRACKET = r'\['
 t_RBRACKET = r'\]'
+t_COMMA = r','
+t_GT = r'>'
+t_LT = r'<'
+t_LTE = r'<='
+t_GTE = r'>='
+t_EQ = r'=='
 
 # A string containing ignored characters (spaces and tabs)
 t_ignore  = ' \t'
