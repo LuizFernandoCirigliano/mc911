@@ -1,0 +1,18 @@
+/* Palindrome numbers: */
+
+dcl n,t int, reverse int = 0;
+
+print("Enter a number: ");
+read(n);
+t = n;
+do
+  while t != 0;
+    reverse = reverse * 10;
+    reverse = reverse + t % 10;
+    t = t / 10;
+od;
+if n == reverse then
+  print(n, " is a palindrome number.\n");
+else
+  print(n, " is not a palindrome number.\n");
+fi;

@@ -8,6 +8,7 @@ tokens = [
    'MINUS',
    'TIMES',
    'DIVIDE',
+   'MODULO',
    'LPAREN',
    'RPAREN',
    'SEMI',
@@ -18,7 +19,8 @@ tokens = [
    'CCONST',
    'SCONST',
     'COMMA',
-    'GT', 'LT', 'GTE', 'LTE', 'EQ'
+    'GT', 'LT', 'GTE', 'LTE', 'EQ', 'DIF', 'AND', 'OR',
+    'COLON', 'CONCAT'
 ]
 
 reserved = {'elsif': 'ELSIF', 'int': 'INT', 'fi': 'FI', 'false': 'FALSE', 'print': 'PRINT',
@@ -39,10 +41,11 @@ t_ARROW = r'\-\>'
 t_MINUS   = r'-'
 t_TIMES   = r'\*'
 t_DIVIDE  = r'/'
+t_MODULO = r'%'
 t_LPAREN  = r'\('
 t_RPAREN  = r'\)'
-t_ASSIGN = r'\='
-t_SEMI= r'\;'
+t_ASSIGN = r'='
+t_SEMI= r';'
 t_LBRACKET = r'\['
 t_RBRACKET = r'\]'
 t_COMMA = r','
@@ -51,6 +54,12 @@ t_LT = r'<'
 t_LTE = r'<='
 t_GTE = r'>='
 t_EQ = r'=='
+t_COLON = r':'
+t_DIF = r'!='
+t_AND = r'&&'
+t_OR = r'\|\|'
+t_CONCAT = r'&'
+
 
 # A string containing ignored characters (spaces and tabs)
 t_ignore  = ' \t'
