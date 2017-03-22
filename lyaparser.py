@@ -21,7 +21,8 @@ class PeterParser(object):
 
     def p_statement(self, p):
         '''statement : declaration_statement
-                              | synonym_statement'''
+                              | synonym_statement
+                              | newmode_statement'''
         p[0] = p[1]
 
     def p_declaration_statement(self, p):
@@ -125,10 +126,6 @@ class PeterParser(object):
         'factor : LPAREN expression RPAREN'
         p[0] = Node('factor', [p[2]], '( )')
 
-    def p_type_int(self, p):
-        'type : INT'
-        p[0] = Node('type', None, p[1])
-
     def p_composite_mode(self, p):
         '''composite_mode : string_mode
                           | array_mode'''
@@ -174,6 +171,18 @@ class PeterParser(object):
         else:
             p[0] = Node('synonym_definition', [p[1], p[2], p[4]], '')
 
+    def p_newmode_statement(self, p):
+        'newmode_statement : TYPE newmode_list SEMI'
+        p[0] = Node('newmode_statement', [p[2]], '')
+
+    def p_newmode_list(self, p):
+        '''newmode_list : mode_definition
+                                    | newmode_list COMMA mode_definition'''
+        p[0] = [p[1]] if len(p) == 2 else p[1] + [p[3]]
+
+    def p_mode_definition(self, p):
+        'mode_definition : identifier_list ASSIGN mode'
+        p[0] = Node('mode_definition', [p[1], p[3]], '')
 
     def p_empty(self, p):
         'empty :'
