@@ -1,2 +1,5 @@
-dcl m int;
-//1 + 1
+dcl m, n int = 1 + (2*1);
+dcl a, b, c, d, e, f int;
+
+dcl my_string chars[20];
+dcl my_array array[int, int, int] int;

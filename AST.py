@@ -7,23 +7,27 @@ def visDataForTree(root):
     n_id = 0
     e_id = 0
 
-    def recDataForTree(node, parent_id):
+    def recDataForTree(node_list, parent_id):
         nonlocal nodes, edges, n_id, e_id
 
-        if node is None:
+        if node_list is None:
             return
 
-        nodes.append( { "id": n_id, "label": str(node)})
+        if type(node_list) == Node:
+            node_list = [node_list]
 
-        if parent_id is not None:
-            edges.append( { "from": parent_id, "to": n_id, "id" : e_id})
+        for node in node_list:
+            nodes.append( { "id": n_id, "label": str(node)})
 
-        cur_id = n_id
-        n_id += 1
-        e_id += 1
+            if parent_id is not None:
+                edges.append( { "from": parent_id, "to": n_id, "id" : e_id})
 
-        for child in node.children:
-            recDataForTree(child, cur_id)
+            cur_id = n_id
+            n_id += 1
+            e_id += 1
+
+            for child in node.children:
+                recDataForTree(child, cur_id)
 
 
     recDataForTree(root, None)
@@ -82,7 +86,7 @@ def make_html(root_node):
     html_string += make_head()
     html_string += "<body> \n\
     <h1>AST Gerada</h1>\n\
-    <div id=\"network\"></div>\n\
+    <div id=\"network\" style=\"height:100%\"></div>\n\
     "
     html_string += make_js(nodes, edges)
     html_string += "</body></html>\n"
