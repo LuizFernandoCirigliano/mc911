@@ -22,7 +22,8 @@ class PeterParser(object):
     def p_statement(self, p):
         '''statement : declaration_statement
                               | synonym_statement
-                              | newmode_statement'''
+                              | newmode_statement
+                              | procedure_statement'''
         p[0] = p[1]
 
     def p_declaration_statement(self, p):
@@ -183,6 +184,80 @@ class PeterParser(object):
     def p_mode_definition(self, p):
         'mode_definition : identifier_list ASSIGN mode'
         p[0] = Node('mode_definition', [p[1], p[3]], '')
+
+    def p_procedure_statement(self, p):
+        'procedure_statement : label_id COLON procedure_definition SEMI'
+        p[0] = Node('procedure_statement', [p[1], p[3]], '')
+
+    def p_procedure_definition_empty(self, p):
+        'procedure_definition : PROC LPAREN RPAREN SEMI END'
+        p[0] = Node('procedure_definition', None, '')
+
+    def p_procedure_definition_statement_only(self, p):
+        'procedure_definition : PROC LPAREN RPAREN SEMI statement_list END'
+        p[0] = Node('procedure_definition', [p[5]], '')
+
+    def p_procedure_definition_result_only(self, p):
+        'procedure_definition : PROC LPAREN RPAREN result_spec SEMI END'
+        p[0] = Node('procedure_definition', [p[4]], '')
+
+    def p_procedure_definition_parameter_only(self, p):
+        'procedure_definition : PROC LPAREN formal_parameter_list RPAREN SEMI END'
+        p[0] = Node('procedure_definition', [p[3]], '')
+
+    def p_procedure_definition_result_statement(self, p):
+        'procedure_definition : PROC LPAREN RPAREN result_spec SEMI statement_list END'
+        p[0] = Node('procedure_definition', [p[4], p[6]], '')
+
+    def p_procedure_definition_parameter_statement(self, p):
+        'procedure_definition : PROC LPAREN formal_parameter_list RPAREN SEMI statement_list END'
+        p[0] = Node('procedure_definition', [p[3], p[6]], '')
+
+    def p_procedure_definition_parameter_result(self, p):
+        'procedure_definition : PROC LPAREN formal_parameter_list RPAREN result_spec SEMI END'
+        p[0] = Node('procedure_definition', [p[3], p[5]], '')
+
+    def p_procedure_definition_all(self, p):
+        'procedure_definition : PROC LPAREN formal_parameter_list RPAREN result_spec SEMI statement_list END'
+        p[0] = Node('procedure_definition', [p[3], p[5], p[7]], '')
+
+    def p_formal_parameter_list(self, p):
+        '''formal_parameter_list : formal_parameter
+                                                  | formal_parameter_list COMMA formal_parameter'''
+        p[0] = [p[1]] if len(p) == 2 else p[1] + [p[3]]
+
+    def p_formal_parameter(self, p):
+        'formal_parameter : identifier_list parameter_spec'
+        p[0] = Node('formal_parameter', [p[1], p[2]], '')
+
+    def p_parameter_spec(self, p):
+        '''parameter_spec : mode
+                                        | mode parameter_attribute'''
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[0] = Node('parameter_spec', [p[1], p[2]], '')
+
+    def p_parameter_attribute(self, p):
+        'parameter_attribute : LOC'
+        p[0] = Node('parameter_attribute', None, p[1])
+
+    def p_result_spec(self, p):
+        '''result_spec : RETURNS LPAREN mode RPAREN
+                                | RETURNS LPAREN mode result_attribute RPAREN'''
+        if len(p) == 5:
+            p[0] = Node('result_spec', [p[3]], '')
+        else:
+            p[0] = Node('result_spec', [p[3], p[4]], '')
+
+    def p_result_attribute(self, p):
+        'result_attribute : LOC'
+        p[0] = Node('result_attribute', None, p[1])
+
+    def p_label_id(self, p):
+        'label_id : identifier'
+        p[0] = p[1]
+
 
     def p_empty(self, p):
         'empty :'
