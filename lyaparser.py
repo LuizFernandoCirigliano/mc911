@@ -20,7 +20,8 @@ class PeterParser(object):
         p[0] = [p[1]] if len(p) == 2 else p[1] + [p[2]]
 
     def p_statement(self, p):
-        'statement : declaration_statement'
+        '''statement : declaration_statement
+                              | synonym_statement'''
         p[0] = p[1]
 
     def p_declaration_statement(self, p):
@@ -155,6 +156,23 @@ class PeterParser(object):
         '''index_mode : discrete_mode
                       | literal_range'''
         p[0] = p[1]
+
+    def p_synonym_statement(self, p):
+        'synonym_statement : SYN synonym_list SEMI'
+        p[0] = Node('synonym_statement', [p[2]], '')
+
+    def p_synonym_list(self, p):
+        '''synonym_list : synonym_definition
+                                  | synonym_list COMMA synonym_definition'''
+        p[0] = [p[1]] if len(p) == 2 else p[1] + [p[3]]
+
+    def p_synonym_definition(self, p):
+        '''synonym_definition : identifier_list ASSIGN expression
+                                              | identifier_list mode ASSIGN expression'''
+        if len(p) == 4:
+            p[0] = Node('synonym_definition', [p[1], p[3]], '')
+        else:
+            p[0] = Node('synonym_definition', [p[1], p[2], p[4]], '')
 
 
     def p_empty(self, p):
