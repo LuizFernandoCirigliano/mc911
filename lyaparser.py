@@ -4,14 +4,14 @@ import ply.yacc as yacc
 
 # Get the token map from the lexer.  This is required.
 from lyalex import LexerLuthor
-from node import Node
+import node
 from AST import make_html
 
 class PeterParser(object):
     start = 'program'
     def p_program(self, p):
         'program : statement_list'
-        p[0] = Node('program', [p[1]], '')
+        p[0] = node.Program(p[1])
 
     def p_statement_list(self, p):
         '''statement_list : statement
@@ -28,7 +28,7 @@ class PeterParser(object):
 
     def p_declaration_statement(self, p):
         'declaration_statement : DCL declaration_list SEMI'
-        p[0] = Node('declaration_statement', [p[2]], '')
+        p[0] = p[1]
 
     def p_declaration_list(self, p):
         '''declaration_list : declaration
@@ -38,7 +38,7 @@ class PeterParser(object):
     def p_declaration(self, p):
         '''declaration : identifier_list mode
                        | identifier_list mode initialization'''
-        p[0] = Node('declaration', p[1:], '')
+        p[0] = node.Declaration(*p[1:])
 
     def p_mode(self, p):
         '''mode : mode_name
@@ -52,9 +52,7 @@ class PeterParser(object):
         p[0] = p[1]
 
     def p_discrete_mode(self, p):
-        '''discrete_mode : int_mode
-                         | bool_mode
-                         | char_mode
+        '''discrete_mode : basic_mode
                          | discrete_range_mode'''
         p[0] = p[1]
 
@@ -62,17 +60,11 @@ class PeterParser(object):
         'reference_mode : REF mode'
         p[0] = Node('reference_mode', [p[2]], '')
 
-    def p_int_mode(self, p):
-        'int_mode : INT'
-        p[0] = Node('int', [], p[1])
-
-    def p_char_mode(self, p):
-        'char_mode : CHAR'
-        p[0] = Node('char', [], p[1])
-
-    def p_bool_mode(self, p):
-        'bool_mode : BOOL'
-        p[0] = Node('bool', [], p[1])
+    def p_basic_mode(self, p):
+        '''basic_mode : INT
+                      | CHAR
+                      | BOOL'''
+        p[0] = node.Mode(p[1])
 
     def p_discrete_range_mode(self, p):
         '''discrete_range_mode : discrete_mode_name LPAREN literal_range RPAREN
