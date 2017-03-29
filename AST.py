@@ -7,27 +7,21 @@ def visDataForTree(root):
     n_id = 0
     e_id = 0
 
-    def recDataForTree(node_list, parent_id):
+    def recDataForTree(node, parent_id):
         nonlocal nodes, edges, n_id, e_id
 
-        if node_list is None:
-            return
 
-        if type(node_list) == Node:
-            node_list = [node_list]
+        nodes.append( { "id": n_id, "label": str(node)})
 
-        for node in node_list:
-            nodes.append( { "id": n_id, "label": str(node)})
+        if parent_id is not None:
+            edges.append( { "from": parent_id, "to": n_id, "id" : e_id})
 
-            if parent_id is not None:
-                edges.append( { "from": parent_id, "to": n_id, "id" : e_id})
+        cur_id = n_id
+        n_id += 1
+        e_id += 1
 
-            cur_id = n_id
-            n_id += 1
-            e_id += 1
-
-            for child in node.children:
-                recDataForTree(child, cur_id)
+        for child in node.children:
+            recDataForTree(child, cur_id)
 
 
     recDataForTree(root, None)
@@ -91,17 +85,3 @@ def make_html(root_node):
     html_string += make_js(nodes, edges)
     html_string += "</body></html>\n"
     return html_string
-
-
-def test():
-    c1 = Node('ID', None, 'x')
-    c2 = Node('ID', None, 'y')
-    p = Node('expr', [c1,c2], '+')
-    html =  make_html(p)
-    with open("ast.html", 'w') as html_file:
-        html_file.write(html)
-
-
-
-if __name__ == '__main__':
-    test()
