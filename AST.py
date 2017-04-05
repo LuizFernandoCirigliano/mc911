@@ -8,8 +8,10 @@ def visDataForTree(root):
     e_id = 0
 
     def recDataForTree(node, parent_id):
-        nonlocal nodes, edges, n_id, e_id
+        if not node:
+            return
 
+        nonlocal nodes, edges, n_id, e_id
 
         nodes.append( { "id": n_id, "label": str(node)})
 

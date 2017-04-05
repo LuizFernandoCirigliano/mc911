@@ -12,7 +12,7 @@ class PeterParser(object):
     start = 'program'
     def p_program(self, p):
         'program : statement_list'
-        p[0] = node.Program(p[1])
+        p[0] = node.Program(p.lineno(1), p[1])
 
     def p_statement_list(self, p):
         '''statement_list : statement
@@ -24,12 +24,13 @@ class PeterParser(object):
         '''statement : declaration_statement
                               | synonym_statement
                               | newmode_statement
-                              | procedure_statement'''
+                              | procedure_statement
+                              | action_statement'''
         p[0] = p[1]
 
     def p_declaration_statement(self, p):
         'declaration_statement : DCL declaration_list SEMI'
-        p[0] = node.DeclarationStatement(p[2])
+        p[0] = node.DeclarationStatement(p.lineno(1), p[2])
 
     def p_declaration_list(self, p):
         '''declaration_list : declaration
@@ -39,7 +40,7 @@ class PeterParser(object):
     def p_declaration(self, p):
         '''declaration : identifier_list mode
                        | identifier_list mode initialization'''
-        p[0] = node.Declaration(*p[1:])
+        p[0] = node.Declaration(p.lineno(1), *p[1:])
 
     def p_mode(self, p):
         '''mode : mode_name
@@ -59,18 +60,18 @@ class PeterParser(object):
 
     def p_reference_mode(self, p):
         'reference_mode : REF mode'
-        p[0] = node.Reference(p[2])
+        p[0] = node.ReferenceMode(p.lineno(1), p[2])
 
     def p_basic_mode(self, p):
         '''basic_mode : INT
                       | CHAR
                       | BOOL'''
-        p[0] = node.BasicMode(p[1])
+        p[0] = node.BasicNode(p.lineno(1), p[1])
 
     def p_discrete_range_mode(self, p):
         '''discrete_range_mode : discrete_mode_name LPAREN literal_range RPAREN
                                | discrete_mode LPAREN literal_range RPAREN '''
-        p[0] = node.DiscreteRangeMode(p[1], p[3])
+        p[0] = node.DiscreteRangeMode(p.lineno(1), p[1], p[3])
 
     def p_discrete_mode_name(self, p):
         'discrete_mode_name : identifier'
@@ -78,7 +79,7 @@ class PeterParser(object):
 
     def p_literal_range(self, p):
         'literal_range : expression COLON expression'
-        p[0] = node.LiteralRange(p[1], p[3])
+        p[0] = node.LiteralRange(p.lineno(1), p[1], p[3])
 
     def p_identifier_list(self, p):
         '''identifier_list : identifier
@@ -88,37 +89,183 @@ class PeterParser(object):
 
     def p_identifier(self, p):
         '''identifier : ID'''
-        p[0] = node.Identifier(p[1])
+        p[0] = node.Identifier(p.lineno(1), p[1])
 
     def p_initialization(self, p):
         '''initialization : ASSIGN expression'''
         p[0] = p[2]
 
-    def p_expression_binop(self, p):
-        '''expression : expression PLUS term
-                      | expression MINUS term'''
-        p[0] = node.BinOp(p[1], p[2], p[3])
 
-    def p_expression_term(self, p):
-        'expression : term'
+    def p_location(self, p):
+        '''location :    dereferenced_reference
+                         | string_element
+                         | string_slice
+                         | array_element
+                         | array_slice
+                         | call_action'''
         p[0] = p[1]
 
-    def p_term_binop(self, p):
-        '''term : term TIMES factor
-                | term DIVIDE factor'''
-        p[0] =  node.BinOp(p[1], p[2], p[3])
+    def p_dereferenced_reference(self, p):
+        'dereferenced_reference : location ARROW'
+        p[0] = node.DereferenceLocation(p.lineno(1), p[1])
 
-    def p_term_factor(self, p):
-        'term : factor'
+    def p_string_element(self, p):
+        'string_element : string_location LBRACKET start_element RBRACKET'
+        p[0] = node.Element(p.lineno(1), 'string', p[1], p[3])
+
+    def p_start_element(self, p):
+        'start_element : expression'
         p[0] = p[1]
 
-    def p_factor_num(self, p):
-        'factor : ICONST'
-        p[0] = node.IConst(p[1])
+    def p_string_slice(self, p):
+        'string_slice : string_location LBRACKET expression COLON expression RBRACKET'
+        p[0] = node.Slice(p.lineno(1), 'string', p[1], p[3], p[5])
 
-    def p_factor_expr(self, p):
-        'factor : LPAREN expression RPAREN'
-        p[0] = p[2]
+    def p_string_location(self, p):
+        'string_location : identifier'
+        p[0] = p[1]
+
+    def p_array_element(self, p):
+        'array_element : location LBRACKET expression_list RBRACKET'
+        p[0] = node.Element(p.lineno(1), 'array', p[1], p[3])
+
+    def p_expression_list(self, p):
+        '''expression_list : expression
+                          | expression COMMA expression_list'''
+        p[0] = [p[1]] if len(p) == 2 else [p[1]] + p[3]
+
+    def p_array_slice(self, p):
+        'array_slice : location LBRACKET expression COLON expression RBRACKET'
+        p[0] = node.Slice(p.lineno(1), 'array', p[1], p[3], p[5])
+
+    def p_primitive_value(self, p):
+        '''primitive_value : literal
+                           | value_array_element
+                           | value_array_slice
+                           | parenthesized_expression'''
+        p[0] = p[1]
+
+    def p_literal(self, p):
+        '''literal : ICONST
+                    | TRUE
+                    | FALSE
+                    | CCONST
+                    | NULL
+                    | SCONST'''
+        p[0] = node.BasicNode(p.lineno(1), p[1])
+
+    def p_value_array_element(self, p):
+        'value_array_element : primitive_value LBRACKET expression_list RBRACKET'
+        p[0] = node.Element(p.lineno(1), 'value-array', p[1], p[3])
+
+    def p_value_array_slice(self, p):
+        'value_array_slice : primitive_value LBRACKET expression COLON expression RBRACKET'
+        p[0] = node.Slice(p.lineno(1), 'value-array', p[1], p[3], p[5])
+
+    def p_parenthesized_expression(self, p):
+        'parenthesized_expression : LPAREN expression RPAREN'
+        p[0] = p[1]
+
+    def p_expression(self, p):
+        '''expression : operand0
+                     | conditional_expression'''
+        p[0] = p[1]
+
+    def p_conditional_expression(self, p):
+        '''conditional_expression : IF expression THEN expression ELSE expression FI
+                                 | IF expression THEN expression elsif_list ELSE expression FI'''
+
+        elsif_list = p[5] if len(p) == 9 else None
+        else_exp = p[7] if len(p) == 9 else p[6]
+        p[0] = node.ConditionalExpression(p.lineno(1), p[2], p[4], else_exp, elsif_list)
+
+    def p_elsif_list(self, p):
+        '''elsif_list : elsif_expression
+                      | elsif_list elsif_expression'''
+        p[0] = [p[1]] if len(p) == 2 else p[1] + [p[2]]
+
+    def p_elsif_expression(self, p):
+        '''elsif_expression : ELSIF expression THEN expression'''
+        p[0] = node.ElsIf(p.lineno(1), p[2], p[4])
+
+    def p_operand0(self, p):
+        '''operand0 : operand1
+                    | operand0 operator1 operand1'''
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[0] = node.BinOp(p[1], p[2], p[3])
+    def p_operator1(self, p):
+        '''operator1 : relational_operator
+                    | IN'''
+        if type(p[1]) == str:
+            p[0] = node.BasicNode(p.lineno(1), p[1])
+        else:
+            p[0] = p[1]
+
+    def p_relational_operator(self, p):
+        '''relational_operator : AND
+                                | OR
+                                | GT
+                                | LT
+                                | GTE
+                                | LTE
+                                | EQ
+                                | DIF'''
+        p[0] = node.BasicNode(p.lineno(1), p[1])
+
+    def p_operand1(self, p):
+        '''operand1 : operand2
+                    | operand1 operator2 operand2'''
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[0] = node.BinOp(p.lineno(1), p[1], p[2], p[3])
+
+    def p_operator2(self, p):
+        '''operator2 : PLUS
+                    | MINUS
+                    | CONCAT'''
+        p[0] = node.BasicNode(p.lineno(1), p[1])
+
+    def p_operand2(self, p):
+        '''operand2 : operand3
+                    | operand2 arithmetic_multiplicative_operator operand3'''
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[0] = node.BinOp(p.lineno(1), p[1], p[2], p[3])
+
+    def p_arithmetic_multiplicative_operator(self, p):
+        '''arithmetic_multiplicative_operator : TIMES
+                                                | DIVIDE
+                                                | MODULO'''
+        p[0] = node.BasicNode(p[1])
+
+    def p_operand3(self, p):
+        '''operand3 :  ICONST
+                    | operand4
+                    | monadic_operator operand4
+                    '''
+        if len(p) == 3:
+            p[0] = node.UnOp(p.lineno(1), p[1], p[2])
+        else:
+            p[0] = node.BasicNode(p.lineno(1), p[1]) if type(p[1]) == str else p[1]
+
+    def p_monadic_operator(self, p):
+        '''monadic_operator : MINUS
+                            | EXCL'''
+        p[0] = node.BasicNode(p.lineno(1), p[1])
+
+    def p_operand4(self, p):
+        '''operand4 : location
+                    | referenced_location
+                    | primitive_value'''
+        p[0] = p[1]
+
+    def p_referenced_location(self, p):
+        'referenced_location : ARROW location'
+        p[0] = node.ReferenceLocation(p.lineno(1), p[2])
 
     def p_composite_mode(self, p):
         '''composite_mode : string_mode
@@ -127,15 +274,15 @@ class PeterParser(object):
 
     def p_string_mode(self, p):
         'string_mode : CHARS LBRACKET string_length RBRACKET'
-        p[0] = node.StringMode(p[3])
+        p[0] = node.StringMode(p.lineno(1), p[3])
 
     def p_string_length(self, p):
         'string_length : ICONST'
-        p[0] = node.IConst(p[1])
+        p[0] = node.BasicNode(p.lineno(1), p[1])
 
     def p_array_mode(self, p):
         'array_mode : ARRAY LBRACKET index_mode_list RBRACKET mode'
-        p[0] = node.ArrayMode(p[3], p[5])
+        p[0] = node.ArrayMode(p.lineno(1), p[3], p[5])
 
     def p_index_mode_list(self, p):
         '''index_mode_list : index_mode
@@ -149,7 +296,7 @@ class PeterParser(object):
 
     def p_synonym_statement(self, p):
         'synonym_statement : SYN synonym_list SEMI'
-        p[0] = node.SynonymStatement(p[2])
+        p[0] = node.SynonymStatement(p.lineno(1), p[2])
 
     def p_synonym_list(self, p):
         '''synonym_list : synonym_definition
@@ -164,11 +311,11 @@ class PeterParser(object):
         if len(p) == 5:
             mode = p[2]
             exp = p[4]
-        p[0] = node.Synonym(p[1], exp, mode)
+        p[0] = node.Synonym(p.lineno(1), p[1], exp, mode)
 
     def p_newmode_statement(self, p):
         'newmode_statement : TYPE newmode_list SEMI'
-        p[0] = node.NewModeStatement(p[2])
+        p[0] = node.NewModeStatement(p.lineno(1), p[2])
 
     def p_newmode_list(self, p):
         '''newmode_list : mode_definition
@@ -177,43 +324,43 @@ class PeterParser(object):
 
     def p_mode_definition(self, p):
         'mode_definition : identifier_list ASSIGN mode'
-        p[0] = node.ModeDefinition(p[1], p[3])
+        p[0] = node.ModeDefinition(p.lineno(1), p[1], p[3])
 
     def p_procedure_statement(self, p):
         'procedure_statement : label_id COLON procedure_definition SEMI'
-        p[0] = node.ProcedureStatement(p[1], p[3])
+        p[0] = node.ProcedureStatement(p.lineno(1), p[1], p[3])
 
     def p_procedure_definition_empty(self, p):
         'procedure_definition : PROC LPAREN RPAREN SEMI END'
-        p[0] = node.ProcedureDefintion()
+        p[0] = node.ProcedureDefintion(p.lineno(1))
 
     def p_procedure_definition_statement_only(self, p):
         'procedure_definition : PROC LPAREN RPAREN SEMI statement_list END'
-        p[0] = node.ProcedureDefintion(statement_list=p[5])
+        p[0] = node.ProcedureDefintion(p.lineno(1), statement_list=p[5])
 
     def p_procedure_definition_result_only(self, p):
         'procedure_definition : PROC LPAREN RPAREN result_spec SEMI END'
-        p[0] = node.ProcedureDefintion(result_spec=p[4])
+        p[0] = node.ProcedureDefintion(p.lineno(1), result_spec=p[4])
 
     def p_procedure_definition_parameter_only(self, p):
         'procedure_definition : PROC LPAREN formal_parameter_list RPAREN SEMI END'
-        p[0] = node.ProcedureDefintion(formal_parameter_list=p[3])
+        p[0] = node.ProcedureDefintion(p.lineno(1), formal_parameter_list=p[3])
 
     def p_procedure_definition_result_statement(self, p):
         'procedure_definition : PROC LPAREN RPAREN result_spec SEMI statement_list END'
-        p[0] = node.ProcedureDefintion(result_spec=p[4], statement_list=p[6])
+        p[0] = node.ProcedureDefintion(p.lineno(1), result_spec=p[4], statement_list=p[6])
 
     def p_procedure_definition_parameter_statement(self, p):
         'procedure_definition : PROC LPAREN formal_parameter_list RPAREN SEMI statement_list END'
-        p[0] = node.ProcedureDefintion(formal_parameter_list=p[3], statement_list=p[6])
+        p[0] = node.ProcedureDefintion(p.lineno(1), formal_parameter_list=p[3], statement_list=p[6])
 
     def p_procedure_definition_parameter_result(self, p):
         'procedure_definition : PROC LPAREN formal_parameter_list RPAREN result_spec SEMI END'
-        p[0] = node.ProcedureDefintion(formal_parameter_list=p[3], result_spec=p[5])
+        p[0] = node.ProcedureDefintion(p.lineno(1), formal_parameter_list=p[3], result_spec=p[5])
 
     def p_procedure_definition_all(self, p):
         'procedure_definition : PROC LPAREN formal_parameter_list RPAREN result_spec SEMI statement_list END'
-        p[0] = node.ProcedureDefintion(formal_parameter_list=p[3], result_spec=p[5], statement_list=p[7])
+        p[0] = node.ProcedureDefintion(p.lineno(1), formal_parameter_list=p[3], result_spec=p[5], statement_list=p[7])
 
     def p_formal_parameter_list(self, p):
         '''formal_parameter_list : formal_parameter
@@ -222,11 +369,11 @@ class PeterParser(object):
 
     def p_formal_parameter(self, p):
         'formal_parameter : identifier_list parameter_spec'
-        p[0] = node.FormalParameter(p[1], p[2])
+        p[0] = node.FormalParameter(p.lineno(1), p[1], p[2])
 
     def p_attribute(self, p):
         'attribute : LOC'
-        p[0] = node.Attribute()
+        p[0] = node.BasicNode(p.lineno(1), p[1])
 
     def p_parameter_spec(self, p):
         '''parameter_spec : mode
@@ -234,7 +381,7 @@ class PeterParser(object):
         parameter_attrib = None
         if len(p) == 3:
             parameter_attrib = p[2]
-        p[0] = node.Spec(spec_type='parameter', mode=p[1], attribute=parameter_attrib)
+        p[0] = node.Spec(p.lineno(1), spec_type='parameter', mode=p[1], attribute=parameter_attrib)
 
 
     def p_result_spec(self, p):
@@ -243,8 +390,172 @@ class PeterParser(object):
         result_attrib = None
         if len(p) == 3:
             result_attrib = p[2]
-        p[0] = node.Spec(spec_type='result', mode=p[1], attribute=result_attrib)
+        p[0] = node.Spec(p.lineno(1), spec_type='result', mode=p[1], attribute=result_attrib)
 
+    def p_action_statement(self, p):
+        '''action_statement : action
+                            | label_id COLON action SEMI'''
+        action, label_id = (p[1], None) if len(p) == 2 else (p[3], p[1])
+        p[0] = node.ActionStatement(p.lineno(1), action, label_id)
+
+    def p_action_statement_list(self, p):
+        '''action_statement_list : action_statement
+                                 | action_statement_list action_statement'''
+        p[0] = [p[1]] if len(p) == 2 else p[1] + [p[2]]
+
+    def p_action(self, p):
+        '''action : bracketed_action
+                      | assignment_action
+                      | call_action
+                      | exit_action
+                      | return_action
+                      | result_action'''
+        p[0] = p[1]
+
+    def p_bracketed_action(self, p):
+        '''bracketed_action : if_action
+                            | do_action'''
+        p[0] = p[1]
+
+    def p_assignment_action(self, p):
+        'assignment_action : location assigning_operator expression'
+        p[0] = node.AssignmentAction(p.lineno(1), p[1], p[2], p[3])
+
+    def p_assigning_operator(self, p):
+        '''assigning_operator : ASSIGN
+                             | closed_dyadic_operator ASSIGN'''
+        op = p[1] if len(p) > 2 else None
+        p[0] = node.AssigningOperator(p.lineno(1), op)
+
+    def p_closed_dyadic_operator(self, p):
+        '''closed_dyadic_operator : PLUS
+                                    | MINUS
+                                    | TIMES
+                                    | DIVIDE
+                                    | MODULO
+                                    | CONCAT'''
+        p[0] = node.BasicNode(p.lineno(1), p[1])
+
+    def p_if_action(self, p):
+        '''if_action : IF expression then_clause FI
+                     | IF expression then_clause else_clause FI'''
+
+    def p_then_clause(self, p):
+        '''then_clause : THEN
+                       | THEN action_statement_list'''
+        p[0] = p[1] if len(p) > 2 else None
+
+    def p_else_clause(self, p):
+        '''else_clause : ELSE
+                        | ELSE action_statement_list
+                        | ELSIF expression then_clause
+                        | ELSIF expression then_clause else_clause'''
+
+
+    def p_do_action(self, p):
+        '''do_action : DO OD
+                    | DO control_part SEMI OD
+                    | DO action_statement_list OD
+                    | DO control_part SEMI action_statement_list OD'''
+        ctrl_part, action_list = None, None
+        if len(p) == 5:
+            ctrl_part = p[2]
+        elif len(p) == 4:
+            action_list = p[2]
+        elif len(p) == 6:
+            ctrl_part, action_list = p[2], p[4]
+        p[0] = node.DoAction(p.lineno(1), ctrl_part, action_list)
+
+    def p_control_part_for(self, p):
+        '''control_part : for_control
+                        | for_control while_control'''
+        p[0] = node.ControlPart(p.lineno(1), *p[1:])
+
+    def p_control_part_while(self, p):
+        '''control_part      : while_control'''
+        p[0] = node.ControlPart(p.lineno(1), while_ctrl=p[1])
+
+    def p_for_control(self, p):
+        'for_control : FOR iteration'
+        p[0] = p[2]
+
+    def p_iteration(self, p):
+        '''iteration : step_enumeration
+                    | range_enumeration'''
+        p[0] = p[1]
+
+    def p_step_enumeration_up(self, p):
+        '''step_enumeration : identifier ASSIGN expression TO expression
+                             | identifier ASSIGN expression step_value TO expression'''
+        identifier = p[1]
+        from_exp = p[3]
+        to_exp = p[5] if len(p) == 6 else p[6]
+        step_val = p[4] if len(p) == 6 else None
+        p[0] = node.StepEnumeration(p.lineno(1), True, identifier, from_exp, to_exp, step_val)
+
+    def p_step_enumeration_down(self, p):
+        '''step_enumeration : identifier ASSIGN expression DOWN TO expression
+                             | identifier ASSIGN expression step_value DOWN TO expression'''
+        identifier = p[1]
+        from_exp = p[3]
+        to_exp = p[6] if len(p) == 7 else p[7]
+        step_val = p[4] if len(p) == 7 else None
+        p[0] = node.StepEnumeration(p.lineno(1), False, identifier, from_exp, to_exp, step_val)
+
+    def p_step_value(self, p):
+        'step_value : BY expression'
+        p[0] = p[2]
+
+    def p_range_enumeration(self, p):
+        '''range_enumeration : identifier IN discrete_mode
+                            | identifier DOWN IN discrete_mode'''
+        up = len(p) == 4
+        p[0] = node.RangeEnum(p.lineno(1), up, p[1], p[len(p) - 1])
+
+    def p_while_control(self, p):
+        'while_control : WHILE expression'
+        p[0] = p[2]
+
+    def p_call_action(self, p):
+        '''call_action : procedure_call
+                        | builtin_call'''
+        p[0] = p[1]
+
+    def p_procedure_call(self, p):
+        '''procedure_call : identifier LPAREN RPAREN
+                         | identifier LPAREN expression_list RPAREN'''
+        exp_list = p[3] if len(p) > 4 else None
+        p[0] = node.ProcedureCall(p.lineno(1), p[1], exp_list)
+
+    def p_exit_action(self, p):
+        'exit_action : EXIT identifier'
+        p[0] = p[2]
+
+    def p_return_action(self, p):
+        '''return_action : RETURN
+                        | RETURN expression'''
+        exp = p[2] if len(p) > 2 else None
+        p[0] = node.ReturnAction(p.lineno(1), exp)
+
+    def p_result_action(self, p):
+        'result_action : RESULT expression'
+        p[0] = p[2]
+
+    def p_builtin_call(self, p):
+        '''builtin_call : builtin_name
+                        | builtin_name expression_list'''
+        p[0] = node.BuiltinCall(p.lineno(1), *p[1:])
+
+    def p_builtin_name(self, p):
+        '''builtin_name : ABS
+                                  | ASC
+                                  | NUM
+                                  | UPPER
+                                  | LOWER
+                                  | LENGTH
+                                  | READ
+                                  | PRINT'''
+        p[0] = node.BasicNode(p.lineno(1), p[1])
 
     def p_label_id(self, p):
         'label_id : identifier'
@@ -256,12 +567,12 @@ class PeterParser(object):
 
     # Error rule for syntax errors
     def p_error(self, p):
-        print("Syntax error in input!")
+        print("Syntax error in input!", p)
 
     def __init__(self, **kwargs):
-        self.lexer = LexerLuthor()
+        self.lexer = LexerLuthor(debug=True)
         self.tokens = self.lexer.tokens
-        self.parser = yacc.yacc(module=self)
+        self.parser = yacc.yacc(module=self, debug=True)
 
 
     def parse(self, data):

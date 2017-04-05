@@ -21,7 +21,7 @@ class LexerLuthor(object):
        'SCONST',
         'COMMA',
         'GT', 'LT', 'GTE', 'LTE', 'EQ', 'DIF', 'AND', 'OR',
-        'COLON', 'CONCAT'
+        'COLON', 'CONCAT', 'EXCL'
     ]
 
     reserved = {'elsif': 'ELSIF', 'int': 'INT', 'fi': 'FI', 'false': 'FALSE', 'print': 'PRINT',
@@ -58,6 +58,7 @@ class LexerLuthor(object):
     t_AND = r'&&'
     t_OR = r'\|\|'
     t_CONCAT = r'&'
+    t_EXCL = r'!'
 
 
     # A string containing ignored characters (spaces and tabs)
