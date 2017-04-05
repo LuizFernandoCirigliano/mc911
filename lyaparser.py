@@ -97,7 +97,8 @@ class PeterParser(object):
 
 
     def p_location(self, p):
-        '''location :    dereferenced_reference
+        '''location :    identifier
+                         | dereferenced_reference
                          | string_element
                          | string_slice
                          | array_element
@@ -110,29 +111,25 @@ class PeterParser(object):
         p[0] = node.DereferenceLocation(p.lineno(1), p[1])
 
     def p_string_element(self, p):
-        'string_element : string_location LBRACKET start_element RBRACKET'
-        p[0] = node.Element(p.lineno(1), 'string', p[1], p[3])
+        'string_element : identifier LBRACKET start_element RBRACKET'
+        p[0] = node.StringElement(p.lineno(1), p[1], p[3])
 
     def p_start_element(self, p):
         'start_element : expression'
         p[0] = p[1]
 
     def p_string_slice(self, p):
-        'string_slice : string_location LBRACKET expression COLON expression RBRACKET'
+        'string_slice : identifier LBRACKET expression COLON expression RBRACKET'
         p[0] = node.Slice(p.lineno(1), 'string', p[1], p[3], p[5])
-
-    def p_string_location(self, p):
-        'string_location : identifier'
-        p[0] = p[1]
 
     def p_array_element(self, p):
         'array_element : location LBRACKET expression_list RBRACKET'
-        p[0] = node.Element(p.lineno(1), 'array', p[1], p[3])
+        p[0] = node.ArrayElement(p.lineno(1), p[1], p[3])
 
     def p_expression_list(self, p):
         '''expression_list : expression
-                          | expression COMMA expression_list'''
-        p[0] = [p[1]] if len(p) == 2 else [p[1]] + p[3]
+                          | expression_list COMMA expression'''
+        p[0] = [p[1]] if len(p) == 2 else p[1] + [p[3]]
 
     def p_array_slice(self, p):
         'array_slice : location LBRACKET expression COLON expression RBRACKET'
@@ -164,7 +161,7 @@ class PeterParser(object):
 
     def p_parenthesized_expression(self, p):
         'parenthesized_expression : LPAREN expression RPAREN'
-        p[0] = p[1]
+        p[0] = p[2]
 
     def p_expression(self, p):
         '''expression : operand0
@@ -194,14 +191,12 @@ class PeterParser(object):
         if len(p) == 2:
             p[0] = p[1]
         else:
-            p[0] = node.BinOp(p[1], p[2], p[3])
+            p[0] = node.BinOp(p.lineno(1), p[1], p[2], p[3])
+
     def p_operator1(self, p):
         '''operator1 : relational_operator
                     | IN'''
-        if type(p[1]) == str:
-            p[0] = node.BasicNode(p.lineno(1), p[1])
-        else:
-            p[0] = p[1]
+        p[0] = p[1]
 
     def p_relational_operator(self, p):
         '''relational_operator : AND
@@ -240,11 +235,10 @@ class PeterParser(object):
         '''arithmetic_multiplicative_operator : TIMES
                                                 | DIVIDE
                                                 | MODULO'''
-        p[0] = node.BasicNode(p[1])
+        p[0] = node.BasicNode(p.lineno(1), p[1])
 
     def p_operand3(self, p):
-        '''operand3 :  ICONST
-                    | operand4
+        '''operand3 : operand4
                     | monadic_operator operand4
                     '''
         if len(p) == 3:
@@ -386,16 +380,16 @@ class PeterParser(object):
 
     def p_result_spec(self, p):
         '''result_spec : RETURNS LPAREN mode RPAREN
-                                | RETURNS LPAREN mode attribute RPAREN'''
+                        | RETURNS LPAREN mode attribute RPAREN'''
         result_attrib = None
-        if len(p) == 3:
-            result_attrib = p[2]
-        p[0] = node.Spec(p.lineno(1), spec_type='result', mode=p[1], attribute=result_attrib)
+        if len(p) == 6:
+            result_attrib = p[4]
+        p[0] = node.Spec(p.lineno(1), spec_type='result', mode=p[3], attribute=result_attrib)
 
     def p_action_statement(self, p):
-        '''action_statement : action
+        '''action_statement : action SEMI
                             | label_id COLON action SEMI'''
-        action, label_id = (p[1], None) if len(p) == 2 else (p[3], p[1])
+        action, label_id = (p[1], None) if len(p) == 3 else (p[3], p[1])
         p[0] = node.ActionStatement(p.lineno(1), action, label_id)
 
     def p_action_statement_list(self, p):
@@ -434,23 +428,36 @@ class PeterParser(object):
                                     | DIVIDE
                                     | MODULO
                                     | CONCAT'''
-        p[0] = node.BasicNode(p.lineno(1), p[1])
+        p[0] = p[1]
 
     def p_if_action(self, p):
         '''if_action : IF expression then_clause FI
-                     | IF expression then_clause else_clause FI'''
+                     | IF expression then_clause else_clause FI
+                     | IF expression then_clause elsif_clause else_clause FI'''
+        p[0] = node.IfAction(p.lineno(1), *p[2:len(p)-1])
 
     def p_then_clause(self, p):
         '''then_clause : THEN
                        | THEN action_statement_list'''
-        p[0] = p[1] if len(p) > 2 else None
+        p[0] = node.ListNode(p[2], 'then') if len(p) > 2 else None
 
     def p_else_clause(self, p):
         '''else_clause : ELSE
-                        | ELSE action_statement_list
-                        | ELSIF expression then_clause
-                        | ELSIF expression then_clause else_clause'''
+                       | ELSE action_statement_list'''
+        p[0] = node.ListNode(p[2], 'else') if len(p) > 2 else None
 
+    def p_elsif_clause(self, p):
+        '''elsif_clause : elsif_clause_list'''
+        p[0] = node.ListNode(p[1], 'elsif')
+
+    def p_elsif_clause_list(self, p):
+        '''elsif_clause_list : elsif_clause_exp
+                             | elsif_clause_list elsif_clause_exp'''
+        p[0] = [p[1]] if len(p) == 2 else p[1] + [p[2]]
+
+    def p_elsif_clause_exp(self, p):
+        '''elsif_clause_exp : ELSIF expression then_clause'''
+        p[0] = node.IfAction(p.lineno(1), *p[2:])
 
     def p_do_action(self, p):
         '''do_action : DO OD
@@ -490,7 +497,7 @@ class PeterParser(object):
         identifier = p[1]
         from_exp = p[3]
         to_exp = p[5] if len(p) == 6 else p[6]
-        step_val = p[4] if len(p) == 6 else None
+        step_val = p[4] if len(p) > 6 else None
         p[0] = node.StepEnumeration(p.lineno(1), True, identifier, from_exp, to_exp, step_val)
 
     def p_step_enumeration_down(self, p):
@@ -529,7 +536,7 @@ class PeterParser(object):
 
     def p_exit_action(self, p):
         'exit_action : EXIT identifier'
-        p[0] = p[2]
+        p[0] = node.PassNode(p.lineno(1), 'EXIT', p[2])
 
     def p_return_action(self, p):
         '''return_action : RETURN
@@ -539,12 +546,13 @@ class PeterParser(object):
 
     def p_result_action(self, p):
         'result_action : RESULT expression'
-        p[0] = p[2]
+        p[0] = node.PassNode(p.lineno(1), 'RESULT', p[2])
 
     def p_builtin_call(self, p):
-        '''builtin_call : builtin_name
-                        | builtin_name expression_list'''
-        p[0] = node.BuiltinCall(p.lineno(1), *p[1:])
+        '''builtin_call : builtin_name LPAREN RPAREN
+                        | builtin_name LPAREN expression_list RPAREN'''
+        exp_list =  p[3] if len(p) > 4 else None
+        p[0] = node.BuiltinCall(p.lineno(1), p[1], exp_list)
 
     def p_builtin_name(self, p):
         '''builtin_name : ABS

@@ -7,7 +7,7 @@ def visDataForTree(root):
     n_id = 0
     e_id = 0
 
-    def recDataForTree(node, parent_id):
+    def recDataForTree(node, parent_id, label=None):
         if not node:
             return
 
@@ -16,14 +16,19 @@ def visDataForTree(root):
         nodes.append( { "id": n_id, "label": str(node)})
 
         if parent_id is not None:
-            edges.append( { "from": parent_id, "to": n_id, "id" : e_id})
+            d = {"from": parent_id, "to": n_id, "id": e_id}
+            if label:
+                d['label'] = label
+            edges.append(d)
 
         cur_id = n_id
         n_id += 1
         e_id += 1
 
-        for child in node.children:
-            recDataForTree(child, cur_id)
+        children, labels = node.children, node.labels
+        for i, child in enumerate(children):
+            label = labels[i] if labels else None
+            recDataForTree(child, cur_id, label)
 
 
     recDataForTree(root, None)
