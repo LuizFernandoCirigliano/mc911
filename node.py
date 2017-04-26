@@ -80,7 +80,7 @@ class LiteralNode(Node):
 
     def __str__(self):
         if self.expr_type.type == 'char':
-            return chr(self.value)
+            return chr(int(self.value))
         return str(self.value)
 
 
