@@ -90,3 +90,7 @@ ENV/
 
 # Project
 .idea
+
+ast.html
+*.out
+parsetab.py

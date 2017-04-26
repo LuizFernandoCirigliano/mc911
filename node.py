@@ -167,7 +167,7 @@ class UnOp(Node):
         return [self.operator, self.operand]
 
     def is_locally_valid(self):
-        valid = self.operator.symbol in self.valid_operators[self.operand.expr_type.type]
+        valid = self.operator.symbol in self.valid_operators.get(self.operand.expr_type.type, [])
         if not valid:
             self.err_msg = "Invalid operator {} for type {}".\
                         format(self.operator.symbol, self.operand.expr_type)
@@ -205,7 +205,7 @@ class BinOp(Node):
             self.print_error()
             return False
 
-        return self.op.symbol in self.valid_operators[self.left.expr_type.type]
+        return self.op.symbol in self.valid_operators.get(self.left.expr_type.type, [])
 
 
 class ReferenceMode(Node):
