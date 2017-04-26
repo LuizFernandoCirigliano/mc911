@@ -170,7 +170,7 @@ class UnOp(Node):
     def is_locally_valid(self):
         valid = self.operator.symbol in self.valid_operators.get(self.operand.expr_type.type, [])
         if not valid:
-            self.err_msg = "Invalid operator {} for type {}".\
+            self.err_msg = "Invalid operator {} for un-op with {} operand".\
                         format(self.operator.symbol, self.operand.expr_type)
             self.print_error()
         return valid
@@ -205,8 +205,13 @@ class BinOp(Node):
                         .format(self.left.expr_type, self.right.expr_type)
             self.print_error()
             return False
-
-        return self.op.symbol in self.valid_operators.get(self.left.expr_type.type, [])
+        else:
+            valid = self.op.symbol in self.valid_operators.get(self.left.expr_type.type, [])
+            if not valid:
+                self.err_msg = 'Invalid operator {} for bin-op with {} operands'.\
+                    format(self.op.symbol, self.left.expr_type)
+                self.print_error()
+            return valid
 
 
 class ReferenceMode(Node):
@@ -527,6 +532,14 @@ class ConditionalExpression(Node):
         if self.elsif_list:
             c.append(ListNode(self.elsif_list, 'elsif'))
         c.append(self.else_exp)
+        return c
+
+    @property
+    def labels(self):
+        c = ['if', 'then']
+        if self.elsif_list:
+            c.append('elsif')
+        c.append('else')
         return c
 
 
