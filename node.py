@@ -134,6 +134,9 @@ class Declaration(Node):
         self.mode = mode
         self.initialization = initialization
 
+        for identifier in identifier_list:
+            identifier.expr_type = self.mode.expr_type
+
     @property
     def children(self):
         c = [ListNode(self.identifier_list, 'identifiers'), self.mode]
@@ -153,6 +156,7 @@ class Declaration(Node):
 class UnOp(Node):
     valid_operators = CaseInsensitiveDict({
         'bool': ['!'],
+        'int': ['-']
     })
 
     def __init__(self, lineno, operator, operand):
@@ -248,6 +252,7 @@ class DiscreteRangeMode(Node):
 
 
 class Identifier(Node):
+
     def __init__(self, lineno, name):
         self.lineno = lineno
         self.display_name = 'identifier'
