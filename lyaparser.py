@@ -166,7 +166,7 @@ class PeterParser(object):
 
     def p_value_array_element(self, p):
         'value_array_element : primitive_value LBRACKET expression_list RBRACKET'
-        p[0] = node.Element(p.lexer.lineno, 'value-array', p[1], p[3])
+        p[0] = node.ArrayElement(p.lexer.lineno, p[1], p[3])
 
     def p_value_array_slice(self, p):
         'value_array_slice : primitive_value LBRACKET expression COLON expression RBRACKET'
@@ -594,10 +594,9 @@ class PeterParser(object):
             print("Unexpected end of input")
 
     def __init__(self, **kwargs):
-        self.lexer = LexerLuthor(debug=True)
+        self.lexer = LexerLuthor(debug=False)
         self.tokens = self.lexer.tokens
         self.parser = yacc.yacc(module=self, debug=True)
-
 
     def parse(self, data):
         return self.parser.parse(data, self.lexer.lexer)

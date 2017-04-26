@@ -22,6 +22,13 @@ void_type = ExprType("void")
 array_type = ExprType("array")
 
 
+class Symbol(object):
+    def __init__(self, name, mode, declaration=None):
+        self.name = name
+        self.mode = mode
+        self.declaration = declaration
+
+
 class SymbolTable(CaseInsensitiveDict):
     """
     Class representing a symbol table. It should
@@ -60,6 +67,11 @@ class Environment(object):
     def scope_level(self):
         return len(self.stack)
     def add_local(self, name, value):
+        prev = self.lookup(name)
+        if prev:
+            print("WARNING definition of \"{}\" on line {} shadows declaration on line {}".format(
+                name, value.declaration.line_number, prev.declaration.line_number
+            ))
         self.peek().add(name, value)
     def add_root(self, name, value):
         self.root.add(name, value)

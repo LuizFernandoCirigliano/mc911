@@ -9,3 +9,15 @@ dcl f int = 1 + 2;
 //dcl g char = 1 + 1;
 
 dcl b int = e + 1;
+
+b = 2;
+
+dcl b char = 'a';
+
+
+e = 3;
+z = 3;
+
+dcl z int;
+
+z = 4;

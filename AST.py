@@ -4,6 +4,7 @@ import json
 blue = '#42d9f4'
 red = '#ff9696'
 
+
 def visDataForTree(root):
     nodes = []
     edges = []
@@ -19,8 +20,8 @@ def visDataForTree(root):
         node_dict = { "id": n_id,
                       "label": str(node),
                       "color": blue if node.is_valid() else red}
-        if node.err_msg is not None:
-            node_dict['title'] = node.err_msg
+        if not node.is_valid():
+            node_dict['title'] = node.err_msg or "Invalid child node"
 
         nodes.append(node_dict)
 
@@ -90,6 +91,7 @@ def make_head():
     </style>\n\
     </head> \n"
     return head_string
+
 
 def make_html(root_node):
     nodes, edges = visDataForTree(root_node)
