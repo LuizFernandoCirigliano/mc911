@@ -16,7 +16,13 @@ def visDataForTree(root):
 
         nonlocal nodes, edges, n_id, e_id
 
-        nodes.append( { "id": n_id, "label": str(node), "color": blue if node.is_valid() else red})
+        node_dict = { "id": n_id,
+                      "label": str(node),
+                      "color": blue if node.is_valid() else red}
+        if node.err_msg is not None:
+            node_dict['title'] = node.err_msg
+
+        nodes.append(node_dict)
 
 
         if parent_id is not None:

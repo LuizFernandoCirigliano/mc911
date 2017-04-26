@@ -133,7 +133,7 @@ class LexerLuthor(object):
 
 
 if __name__ == '__main__':
-    from migue import get_data
+    from helpers import get_data
     lexer = LexerLuthor()
     data = get_data()
     lexer.lexer.input(data)

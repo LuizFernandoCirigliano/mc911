@@ -1,7 +1,6 @@
 from ModeManager import TypeGetter
 from case_ins_dict import CaseInsensitiveDict
 
-
 def validate_list(mylist):
     for l in mylist:
         if not l.is_valid():
@@ -10,15 +9,17 @@ def validate_list(mylist):
 
 
 class Node(object):
-    type = ''
+    display_name = ''
     lineno = None
     expr_type = TypeGetter('void')
+    valid_saved = None
+    err_msg = None
 
     def __str__(self):
-        return self.type
+        return self.display_name
 
     def __repr__(self):
-        return "{}:{}".format(self.type, self.lineno)
+        return "{}:{}".format(self.display_name, self.lineno)
 
     @property
     def children(self):
@@ -32,7 +33,16 @@ class Node(object):
         return True
 
     def is_valid(self):
-        return validate_list(self.children) and self.is_locally_valid()
+        if self.valid_saved is None:
+            valid_children = validate_list(self.children)
+            if not valid_children:
+                self.err_msg = "Semantic error on child node"
+            self.valid_saved = valid_children and self.is_locally_valid()
+        return self.valid_saved
+
+    def print_error(self):
+        from helpers import print_error
+        print_error('semantic', self.lineno, self.err_msg)
 
 
 class OperatorNode(Node):
@@ -76,7 +86,7 @@ class LiteralNode(Node):
 
 class PassNode(Node):
     def __init__(self, lineno, type, child):
-        self.type=type
+        self.display_name=type
         self.child=child
 
     @property
@@ -86,7 +96,7 @@ class PassNode(Node):
 
 class ListNode(Node):
     def __init__(self, child_list, type='list'):
-        self.type = type
+        self.display_name = type
         self.child_list = child_list
 
     @property
@@ -97,7 +107,7 @@ class ListNode(Node):
 class Program(Node):
     def __init__(self, lineno, statement_list):
         self.lineno = lineno
-        self.type = 'program'
+        self.display_name = 'program'
         self.statement_list = statement_list
 
     @property
@@ -108,7 +118,7 @@ class Program(Node):
 class DeclarationStatement(Node):
     def __init__(self, lineno, declaration_list):
         self.lineno = lineno
-        self.type = 'dcl-stat'
+        self.display_name = 'dcl-stat'
         self.declaration_list = declaration_list
 
     @property
@@ -119,7 +129,7 @@ class DeclarationStatement(Node):
 class Declaration(Node):
     def __init__(self, lineno, identifier_list, mode, initialization=None):
         self.lineno = lineno
-        self.type = 'dcl'
+        self.display_name = 'dcl'
         self.identifier_list = identifier_list
         self.mode = mode
         self.initialization = initialization
@@ -131,8 +141,13 @@ class Declaration(Node):
             c.append(self.initialization)
         return c
 
-    def is_valid(self):
-        return self.mode.expr_type == self.initialization.expr_type if self.initialization else True
+    def is_locally_valid(self):
+        valid = self.mode.expr_type == self.initialization.expr_type if self.initialization else True
+        if not valid:
+            self.err_msg = "Declaration expected type {} but received {}".\
+                format(self.mode.expr_type, self.initialization.expr_type)
+            self.print_error()
+        return valid
 
 
 class UnOp(Node):
@@ -142,7 +157,7 @@ class UnOp(Node):
 
     def __init__(self, lineno, operator, operand):
         self.lineno = lineno
-        self.type = 'un-op'
+        self.display_name = 'un-op'
         self.operator = operator
         self.operand = operand
         self.expr_type = self.operand.expr_type
@@ -151,8 +166,13 @@ class UnOp(Node):
     def children(self):
         return [self.operator, self.operand]
 
-    def is_valid(self):
-        return self.operator.symbol in self.valid_operators[self.operand.expr_type.type]
+    def is_locally_valid(self):
+        valid = self.operator.symbol in self.valid_operators[self.operand.expr_type.type]
+        if not valid:
+            self.err_msg = "Invalid operator {} for type {}".\
+                        format(self.operator.symbol, self.operand.expr_type)
+            self.print_error()
+        return valid
 
 
 
@@ -165,7 +185,7 @@ class BinOp(Node):
 
     def __init__(self, lineno, left, op: OperatorNode, right):
         self.lineno = lineno
-        self.type = 'bin-op'
+        self.display_name = 'bin-op'
         self.left = left
         self.right = right
         self.op = op
@@ -178,8 +198,11 @@ class BinOp(Node):
     def children(self):
         return [self.left, self.right]
 
-    def is_valid(self):
+    def is_locally_valid(self):
         if self.left.expr_type != self.right.expr_type:
+            self.err_msg = 'Binary Operation with mismatching types ({} and {})'\
+                        .format(self.left.expr_type, self.right.expr_type)
+            self.print_error()
             return False
 
         return self.op.symbol in self.valid_operators[self.left.expr_type.type]
@@ -188,7 +211,7 @@ class BinOp(Node):
 class ReferenceMode(Node):
     def __init__(self, lineno, mode):
         self.lineno = lineno
-        self.type = 'ref-mode'
+        self.display_name = 'ref-mode'
         self.mode = mode
 
     @property
@@ -199,7 +222,7 @@ class ReferenceMode(Node):
 class LiteralRange(Node):
     def __init__(self, lineno, lb, ub):
         self.lineno = lineno
-        self.type = 'literal-range'
+        self.display_name = 'literal-range'
         self.lower_bound = lb
         self.upper_bound = ub
 
@@ -215,7 +238,7 @@ class LiteralRange(Node):
 class DiscreteRangeMode(Node):
     def __init__(self, lineno, mode, literal_range):
         self.lineno = lineno
-        self.type = 'discrete-range-mode'
+        self.display_name = 'discrete-range-mode'
         self.mode = mode
         self.literal_range = literal_range
 
@@ -227,7 +250,7 @@ class DiscreteRangeMode(Node):
 class Identifier(Node):
     def __init__(self, lineno, name):
         self.lineno = lineno
-        self.type = 'identifier'
+        self.display_name = 'identifier'
         self.name = name
 
     def __str__(self):
@@ -237,14 +260,14 @@ class Identifier(Node):
 class SynonymStatement(Node):
     def __init__(self, lineno, synonym_list: list):
         self.lineno = lineno
-        self.type = 'synonym-stat'
+        self.display_name = 'synonym-stat'
         self.synonym_list = synonym_list
 
     @property
     def children(self):
         return self.synonym_list
 
-    def is_valid(self):
+    def is_locally_valid(self):
         return validate_list(self.synonym_list)
 
 
@@ -253,7 +276,7 @@ class Synonym(Node):
 
     def __init__(self, lineno, identifier_list, expression, mode=None):
         self.lineno = lineno
-        self.type = 'synonym'
+        self.display_name = 'synonym'
         self.identifier_list = identifier_list
         self.expression = expression
         self.mode = mode
@@ -269,18 +292,26 @@ class Synonym(Node):
     def labels(self):
         return ['ids', 'expr', 'mode'] if self.mode else ['ids', 'expr']
 
-    def is_valid(self):
+    def is_locally_valid(self):
         if not self.expression.expr_type.type in self.valid_types:
+            self.err_msg = 'Invalid type {} for synonym expression'.\
+                        format(self.expression.expr_type)
+            self.print_error()
             return False
         if self.mode:
-            return self.mode.expr_type == self.expression.expr_type
+            valid = self.mode.expr_type == self.expression.expr_type
+            if not valid:
+                self.err_msg = 'Synonym expression expected type {} but received {}'.\
+                            format(self.mode.expr_type, self.expression.expr_type)
+                self.print_error()
+            return valid
         return True
 
 
 class StringMode(Node):
     def __init__(self, lineno, length):
         self.lineno = lineno
-        self.type = 'string-mode'
+        self.display_name = 'string-mode'
         self.length = length
 
     @property
@@ -291,7 +322,7 @@ class StringMode(Node):
 class ArrayMode(Node):
     def __init__(self, lineno, index_mode_list, mode=Node):
         self.lineno = lineno
-        self.type = 'array-mode'
+        self.display_name = 'array-mode'
         self.index_mode_list = index_mode_list
         self.mode = mode
 
@@ -313,7 +344,7 @@ class ArrayMode(Node):
 class NewModeStatement(Node):
     def __init__(self, lineno, newmode_list):
         self.lineno = lineno
-        self.type = 'new-mode-stat'
+        self.display_name = 'new-mode-stat'
         self.newmode_list = newmode_list
 
     @property
@@ -324,7 +355,7 @@ class NewModeStatement(Node):
 class ModeDefinition(Node):
     def __init__(self, lineno, identifier_list, mode):
         self.lineno = lineno
-        self.type = 'mode-def'
+        self.display_name = 'mode-def'
         self.mode = mode
         self.identifier_list = identifier_list
 
@@ -340,7 +371,7 @@ class ModeDefinition(Node):
 class ProcedureStatement(Node):
     def __init__(self, lineno, label_id, procedure_definition):
         self.lineno = lineno
-        self.type = 'proc-stat'
+        self.display_name = 'proc-stat'
         self.label_id = label_id
         self.procedure_definition = procedure_definition
 
@@ -352,7 +383,7 @@ class ProcedureStatement(Node):
 class ProcedureDefintion(Node):
     def __init__(self, lineno, statement_list=None, formal_parameter_list=None, result_spec=None):
         self.lineno = lineno
-        self.type = 'proc-def'
+        self.display_name = 'proc-def'
         self.statement_list = statement_list
         self.formal_parameter_list = formal_parameter_list
         self.result_spec = result_spec
@@ -372,7 +403,7 @@ class ProcedureDefintion(Node):
 class FormalParameter(Node):
     def __init__(self, lineno, id_list, parameter_spec):
         self.lineno = lineno
-        self.type = 'formal-param'
+        self.display_name = 'formal-param'
         self.parameter_spec = parameter_spec
         self.identifier_list = id_list
 
@@ -384,7 +415,7 @@ class FormalParameter(Node):
 class Spec(Node):
     def __init__(self, lineno, spec_type, mode, attribute=None):
         self.lineno = lineno
-        self.type = 'spec'
+        self.display_name = 'spec'
         self.spec_type = spec_type
         self.mode = mode
         self.attribute=attribute
@@ -397,13 +428,13 @@ class Spec(Node):
         return c
 
     def __str__(self):
-        return "{0}-{1}".format(self.type, self.spec_type)
+        return "{0}-{1}".format(self.display_name, self.spec_type)
 
 
 class ReferenceLocation(Node):
     def __init__(self, lineno, location):
         self.lineno = lineno
-        self.type = 'ref-loc'
+        self.display_name = 'ref-loc'
         self.location = location
 
     @property
@@ -413,7 +444,7 @@ class ReferenceLocation(Node):
 
 class DereferenceLocation(Node):
     def __init__(self, lineno, location):
-        self.type='deref-loc'
+        self.display_name='deref-loc'
         self.lineno = lineno
         self.location = location
 
@@ -425,7 +456,7 @@ class DereferenceLocation(Node):
 class Slice(Node):
     def __init__(self, lineno, data_type, location, exp_begin, exp_end):
         self.lineno = lineno
-        self.type = 'slice'
+        self.display_name = 'slice'
         self.data_type = data_type
         self.location = location
         self.exp_begin = exp_begin
@@ -439,7 +470,7 @@ class Slice(Node):
 class StringElement(Node):
     def __init__(self, lineno, location, element):
         self.lineno = lineno
-        self.type = 'string-element'
+        self.display_name = 'string-element'
         self.location = location
         self.element = element
 
@@ -455,7 +486,7 @@ class StringElement(Node):
 class ArrayElement(Node):
     def __init__(self, lineno, location, exp_list):
         self.lineno = lineno
-        self.type = 'array-element'
+        self.display_name = 'array-element'
         self.location = location
         self.exp_list = exp_list
 
@@ -470,7 +501,7 @@ class ArrayElement(Node):
 class ElsIf(Node):
     def __init__(self, lineno, condition, action):
         self.lineno = lineno
-        self.type = 'elsif'
+        self.display_name = 'elsif'
         self.condition = condition
         self.action = action
 
@@ -482,7 +513,7 @@ class ElsIf(Node):
 class ConditionalExpression(Node):
     def __init__(self, lineno, condition_exp, action_exp, else_exp, elsif_list=None):
         self.lineno = lineno
-        self.type = 'cond'
+        self.display_name = 'cond'
         self.condition_exp = condition_exp
         self.action_exp = action_exp
         self.else_exp = else_exp
@@ -500,7 +531,7 @@ class ConditionalExpression(Node):
 class ActionStatement(Node):
     def __init__(self, lineno, action, label_id=None):
         self.lineno = lineno
-        self.type = 'action-sttmnt'
+        self.display_name = 'action-sttmnt'
         self.action = action
         self.label_id = label_id
 
@@ -514,7 +545,7 @@ class ActionStatement(Node):
 
 class AssignmentAction(Node):
     def __init__(self, lineno, location, operator, expression):
-        self.type='assign-act'
+        self.display_name='assign-act'
         self.lineno = lineno
         self.location = location
         self.operator = operator
@@ -534,7 +565,7 @@ class AssignmentAction(Node):
 
 class AssigningOperator(Node):
     def __init__(self, lineno, closed_dyadic_op=None):
-        self.type = 'assign-op'
+        self.display_name = 'assign-op'
         self.lineno = lineno
         self.closed_dyadic_op = closed_dyadic_op
 
@@ -545,7 +576,7 @@ class AssigningOperator(Node):
 class ReturnAction(Node):
     def __init__(self, lineno, expression=None):
         self.lineno=lineno
-        self.type='return'
+        self.display_name='return'
         self.expression=expression
 
     @property
@@ -555,7 +586,7 @@ class ReturnAction(Node):
 
 class FuncCall(Node):
     def __init__(self, lineno, name, exp_list=None):
-        self.type='func-call'
+        self.display_name='func-call'
         self.lineno = lineno
         self.name = name
         self.arg_list = exp_list
@@ -574,7 +605,7 @@ class FuncCall(Node):
 class BuiltinCall(FuncCall):
     def __init__(self, *args):
         super().__init__(*args)
-        self.type='builtin-call'
+        self.display_name='builtin-call'
 
 class BuiltinName(Node):
     #TODO Verificar essas funções
@@ -599,13 +630,13 @@ class BuiltinName(Node):
 class ProcedureCall(FuncCall):
     def __init__(self, *args):
         super().__init__(*args)
-        self.type = 'proc-call'
+        self.display_name = 'proc-call'
 
 
 class StepEnumeration(Node):
     def __init__(self, lineno, up, identifier, from_exp, to_exp, step_val=None):
         self.lineno = lineno
-        self.type = "enum-up" if up else "enum-down"
+        self.display_name = "enum-up" if up else "enum-down"
         self.up = up
         self.identifier = identifier
         self.from_exp = from_exp
@@ -629,7 +660,7 @@ class StepEnumeration(Node):
 
 class RangeEnum(Node):
     def __init__(self, lineno, up, identifier, discrete_mode):
-        self.type = "rng-up" if up else "rng-down"
+        self.display_name = "rng-up" if up else "rng-down"
         self.lineno = lineno
         self.up = up
         self.identifier = identifier
@@ -642,7 +673,7 @@ class RangeEnum(Node):
 
 class ControlPart(Node):
     def __init__(self, lineno, for_ctrl=None, while_ctrl=None):
-        self.type='ctrl-part'
+        self.display_name='ctrl-part'
         self.lineno = lineno
         self.for_ctrl = for_ctrl
         self.while_ctrl = while_ctrl
@@ -669,7 +700,7 @@ class ControlPart(Node):
 
 class DoAction(Node):
     def __init__(self, lineno, ctrl_part=None, action_st_list=None):
-        self.type='do-act'
+        self.display_name='do-act'
         self.lineno = lineno
         self.ctrl_part = ctrl_part
         self.action_st_list = action_st_list
@@ -685,7 +716,7 @@ class DoAction(Node):
 
 class IfAction(Node):
     def __init__(self, lineno, expression, then_clause, elsif_clause=None, else_clause=None):
-        self.type='if-act'
+        self.display_name='if-act'
         self.lineno = lineno
         self.expression=expression
         self.then_clause=then_clause
@@ -697,7 +728,7 @@ class IfAction(Node):
         c = [self.expression, self.then_clause]
         if self.elsif_clause:
             c.append(self.elsif_clause)
-        if  self.else_clause:
+        if self.else_clause:
             c.append(self.else_clause)
         return c
 

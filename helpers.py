@@ -1,3 +1,7 @@
+def print_error(type, lineno, error_msg):
+    print("ERROR ({}) on line {}: {}".format(type, lineno, error_msg))
+
+
 def get_data():
     import sys
     data = ""

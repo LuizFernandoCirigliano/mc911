@@ -1,4 +1,4 @@
-syn a int = 42; // "int"
+syn int = 42; // "int"
 syn b bool = 'b'; // "char"
 syn c = "hello"; // "string"
 syn d = true; // "bool"

@@ -1,4 +1,5 @@
 from node import Declaration
+from ModeManager import int_type, char_type, string_type, bool_type
 
 
 class SymbolTable(dict):
