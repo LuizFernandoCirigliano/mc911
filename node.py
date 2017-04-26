@@ -134,9 +134,6 @@ class Declaration(Node):
         self.mode = mode
         self.initialization = initialization
 
-        for identifier in identifier_list:
-            identifier.expr_type = self.mode.expr_type
-
     @property
     def children(self):
         c = [ListNode(self.identifier_list, 'identifiers'), self.mode]
