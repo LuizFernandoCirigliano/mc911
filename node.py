@@ -1,5 +1,5 @@
-from ModeManager import TypeGetter
 from case_ins_dict import CaseInsensitiveDict
+from environments import var_env, mode_env
 
 def validate_list(mylist):
     for l in mylist:
@@ -11,7 +11,7 @@ def validate_list(mylist):
 class Node(object):
     display_name = ''
     lineno = None
-    expr_type = TypeGetter('void')
+    expr_type = mode_env.lookup('void')
     valid_saved = None
     err_msg = None
 
@@ -66,7 +66,7 @@ class BasicNode(Node):
 class BasicMode(Node):
     def __init__(self, lineno, type):
         self.lineno = lineno
-        self.expr_type = TypeGetter(type)
+        self.expr_type = mode_env.lookup(type)
 
     def __str__(self):
         return str(self.expr_type)
@@ -76,7 +76,7 @@ class LiteralNode(Node):
     def __init__(self, lineno, value, type_name):
         self.lineno = lineno
         self.value = value
-        self.expr_type = TypeGetter(type_name)
+        self.expr_type = mode_env.lookup(type_name)
 
     def __str__(self):
         if self.expr_type.type == 'char':
@@ -133,6 +133,11 @@ class Declaration(Node):
         self.identifier_list = identifier_list
         self.mode = mode
         self.initialization = initialization
+
+        for identifier in identifier_list:
+            if type(identifier) is not Identifier:
+                raise TypeError
+            var_env.add_local(identifier.name, self.mode.expr_type)
 
     @property
     def children(self):
@@ -263,6 +268,10 @@ class Identifier(Node):
     def __str__(self):
         return "ID: " + self.name
 
+    @property
+    def expr_type(self):
+        return var_env.lookup(self.name) or mode_env.lookup('void')
+
 
 class SynonymStatement(Node):
     def __init__(self, lineno, synonym_list: list):
@@ -300,8 +309,8 @@ class Synonym(Node):
         return ['ids', 'expr', 'mode'] if self.mode else ['ids', 'expr']
 
     def is_locally_valid(self):
-        if not self.expression.expr_type.type in self.valid_types:
-            self.err_msg = 'Invalid type {} for synonym expression'.\
+        if self.expression.expr_type.type not in self.valid_types:
+            self.err_msg = 'Invalid type for synonym expression'.\
                         format(self.expression.expr_type)
             self.print_error()
             return False
@@ -625,13 +634,13 @@ class BuiltinCall(FuncCall):
 class BuiltinName(Node):
     #TODO Verificar essas funções
     ret_types = CaseInsensitiveDict({
-        'ABS': TypeGetter('int'),
-        'ASC': TypeGetter('int'),
-        'UPPER': TypeGetter('string'),
-        'LOWER': TypeGetter('string'),
-        'NUM': TypeGetter('int'),
-        'READ': TypeGetter('string'),
-        'PRINT': TypeGetter('void')
+        'ABS': mode_env.lookup('int'),
+        'ASC': mode_env.lookup('int'),
+        'UPPER': mode_env.lookup('string'),
+        'LOWER': mode_env.lookup('string'),
+        'NUM': mode_env.lookup('int'),
+        'READ': mode_env.lookup('string'),
+        'PRINT': mode_env.lookup('void')
     })
     def __init__(self, lineno, name):
         self.lineno = lineno

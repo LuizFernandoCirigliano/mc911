@@ -1,14 +1,34 @@
-from node import Declaration
-from ModeManager import int_type, char_type, string_type, bool_type
+from case_ins_dict import CaseInsensitiveDict
 
 
-class SymbolTable(dict):
+class ExprType(object):
+    def __init__(self, type: str, specific=None):
+        self.type = type
+        self.specific = specific
+
+    def __cmp__(self, other):
+        return self.type == other.type and self.specific == other.name
+
+    def __str__(self):
+        if self.specific:
+            return "{}-{}".format(self.type, self.specific)
+        return self.type
+
+int_type = ExprType("int")
+bool_type = ExprType("bool")
+char_type = ExprType("char")
+string_type = ExprType("string")
+void_type = ExprType("void")
+array_type = ExprType("array")
+
+
+class SymbolTable(CaseInsensitiveDict):
     """
     Class representing a symbol table. It should
     provide functionality for adding and looking
     up nodes associated with identifiers.
     """
-    def __init__(self, decl:Declaration=None):
+    def __init__(self, decl=None):
         super().__init__()
         self.decl = decl
 
@@ -25,16 +45,12 @@ class SymbolTable(dict):
 
 
 class Environment(object):
-    def __init__(self):
+    def __init__(self, root_dict:CaseInsensitiveDict=None):
         self.stack = []
         self.root = SymbolTable()
         self.stack.append(self.root)
-        self.root.update({
-            "int": int_type,
-            "char": char_type,
-            "string": string_type,
-            "bool": bool_type
-        })
+        if root_dict:
+            self.root.update(root_dict)
     def push(self, enclosure):
         self.stack.append(SymbolTable(decl=enclosure))
     def pop(self):
@@ -58,3 +74,15 @@ class Environment(object):
             return True
         else:
             return False
+
+mode_env = Environment(CaseInsensitiveDict({
+            "int": int_type,
+            "char": char_type,
+            "string": string_type,
+            "bool": bool_type,
+            "void": void_type
+        }))
+
+
+var_env = Environment()
+
