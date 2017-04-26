@@ -1,6 +1,18 @@
+from ModeManager import TypeGetter
+from case_ins_dict import CaseInsensitiveDict
+
+
+def validate_list(mylist):
+    for l in mylist:
+        if not l.is_valid():
+            return False
+    return True
+
+
 class Node(object):
-    type = ""
+    type = ''
     lineno = None
+    expr_type = TypeGetter('void')
 
     def __str__(self):
         return self.type
@@ -16,6 +28,21 @@ class Node(object):
     def labels(self):
         return None
 
+    def is_locally_valid(self):
+        return True
+
+    def is_valid(self):
+        return validate_list(self.children) and self.is_locally_valid()
+
+
+class OperatorNode(Node):
+    def __init__(self, lineno, symbol:str):
+        self.lineno = lineno
+        self.symbol = symbol
+
+    def __str__(self):
+        return self.symbol
+
 
 class BasicNode(Node):
     def __init__(self, lineno, value):
@@ -24,6 +51,28 @@ class BasicNode(Node):
 
     def __str__(self):
         return str(self.value)
+
+
+class BasicMode(Node):
+    def __init__(self, lineno, type):
+        self.lineno = lineno
+        self.expr_type = TypeGetter(type)
+
+    def __str__(self):
+        return str(self.expr_type)
+
+
+class LiteralNode(Node):
+    def __init__(self, lineno, value, type_name):
+        self.lineno = lineno
+        self.value = value
+        self.expr_type = TypeGetter(type_name)
+
+    def __str__(self):
+        if self.expr_type.type == 'char':
+            return chr(self.value)
+        return str(self.value)
+
 
 class PassNode(Node):
     def __init__(self, lineno, type, child):
@@ -82,26 +131,45 @@ class Declaration(Node):
             c.append(self.initialization)
         return c
 
+    def is_valid(self):
+        return self.mode.expr_type == self.initialization.expr_type if self.initialization else True
+
 
 class UnOp(Node):
+    valid_operators = CaseInsensitiveDict({
+        'bool': ['!'],
+    })
+
     def __init__(self, lineno, operator, operand):
         self.lineno = lineno
         self.type = 'un-op'
         self.operator = operator
         self.operand = operand
+        self.expr_type = self.operand.expr_type
 
     @property
     def children(self):
         return [self.operator, self.operand]
 
+    def is_valid(self):
+        return self.operator.symbol in self.valid_operators[self.operand.expr_type.type]
+
+
 
 class BinOp(Node):
-    def __init__(self, lineno, left, op:str, right):
+    valid_operators = CaseInsensitiveDict({
+        'int': ['+', '-', '*', '/', '%', '==', '!=', '>', '>=', '<', '>=', '<', '<=' ],
+        'bool': ['==', '!='],
+        'string': ['==', '!=', '+']
+    })
+
+    def __init__(self, lineno, left, op: OperatorNode, right):
         self.lineno = lineno
         self.type = 'bin-op'
         self.left = left
         self.right = right
         self.op = op
+        self.expr_type = self.left.expr_type
 
     def __str__(self):
         return str(self.op)
@@ -109,6 +177,12 @@ class BinOp(Node):
     @property
     def children(self):
         return [self.left, self.right]
+
+    def is_valid(self):
+        if self.left.expr_type != self.right.expr_type:
+            return False
+
+        return self.op.symbol in self.valid_operators[self.left.expr_type.type]
 
 
 class ReferenceMode(Node):
@@ -170,8 +244,13 @@ class SynonymStatement(Node):
     def children(self):
         return self.synonym_list
 
+    def is_valid(self):
+        return validate_list(self.synonym_list)
+
 
 class Synonym(Node):
+    valid_types = ['int', 'string', 'char', 'bool']
+
     def __init__(self, lineno, identifier_list, expression, mode=None):
         self.lineno = lineno
         self.type = 'synonym'
@@ -186,6 +265,16 @@ class Synonym(Node):
         else:
             return [ListNode(self.identifier_list, 'identifiers'), self.expression]
 
+    @property
+    def labels(self):
+        return ['ids', 'expr', 'mode'] if self.mode else ['ids', 'expr']
+
+    def is_valid(self):
+        if not self.expression.expr_type.type in self.valid_types:
+            return False
+        if self.mode:
+            return self.mode.expr_type == self.expression.expr_type
+        return True
 
 
 class StringMode(Node):
@@ -469,13 +558,13 @@ class FuncCall(Node):
         self.type='func-call'
         self.lineno = lineno
         self.name = name
-        self.exp_list = exp_list
+        self.arg_list = exp_list
 
     @property
     def children(self):
         c = [self.name]
-        if self.exp_list:
-            c.append(ListNode(self.exp_list, 'args'))
+        if self.arg_list:
+            c.append(ListNode(self.arg_list, 'args'))
         return c
 
     @property
@@ -486,6 +575,26 @@ class BuiltinCall(FuncCall):
     def __init__(self, *args):
         super().__init__(*args)
         self.type='builtin-call'
+
+class BuiltinName(Node):
+    #TODO Verificar essas funções
+    ret_types = CaseInsensitiveDict({
+        'ABS': TypeGetter('int'),
+        'ASC': TypeGetter('int'),
+        'UPPER': TypeGetter('string'),
+        'LOWER': TypeGetter('string'),
+        'NUM': TypeGetter('int'),
+        'READ': TypeGetter('string'),
+        'PRINT': TypeGetter('void')
+    })
+    def __init__(self, lineno, name):
+        self.lineno = lineno
+        self.name = name
+        self.expr_type = self.ret_types[name]
+
+    def __str__(self):
+        return str(self.name)
+
 
 class ProcedureCall(FuncCall):
     def __init__(self, *args):

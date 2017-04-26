@@ -1,6 +1,9 @@
 from node import Node
 import json
 
+blue = '#42d9f4'
+red = '#ff9696'
+
 def visDataForTree(root):
     nodes = []
     edges = []
@@ -13,7 +16,8 @@ def visDataForTree(root):
 
         nonlocal nodes, edges, n_id, e_id
 
-        nodes.append( { "id": n_id, "label": str(node)})
+        nodes.append( { "id": n_id, "label": str(node), "color": blue if node.is_valid() else red})
+
 
         if parent_id is not None:
             d = {"from": parent_id, "to": n_id, "id": e_id}
@@ -66,8 +70,8 @@ def make_head():
     <link href=\"./vis/vis-network.min.css\" rel=\"stylesheet\" type=\"text/css\" />\n\
     <style type=\"text/css\">\n\
         #network{\n\
-            width: 1000px;\n\
-            height: 400px;\n\
+            width: 100%;\n\
+            bottom: 90%\n\
             border: 1px solid lightgray;\n\
         }\n\
 \n\
@@ -87,7 +91,7 @@ def make_html(root_node):
     html_string += make_head()
     html_string += "<body> \n\
     <h1>AST Gerada</h1>\n\
-    <div id=\"network\" style=\"height:100%\"></div>\n\
+    <div id=\"network\"></div>\n\
     "
     html_string += make_js(nodes, edges)
     html_string += "</body></html>\n"

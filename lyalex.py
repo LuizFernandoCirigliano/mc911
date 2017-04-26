@@ -98,7 +98,7 @@ class LexerLuthor(object):
       return t
 
     def  t_SCONST(self, t):
-      r'\".*\"'
+      r'\".*?\"'
       t.value =t.value[1:-1]
       return t
 

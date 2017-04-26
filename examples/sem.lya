@@ -1,0 +1,9 @@
+syn a int = 42; // "int"
+syn b bool = 'b'; // "char"
+syn c = "hello"; // "string"
+syn d = true; // "bool"
+syn d = c;
+
+dcl e int = 1 + 1;
+dcl f int = 1 + 'a';
+dcl g char = 1 + 1;

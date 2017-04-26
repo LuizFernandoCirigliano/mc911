@@ -66,7 +66,7 @@ class PeterParser(object):
         '''basic_mode : INT
                       | CHAR
                       | BOOL'''
-        p[0] = node.BasicNode(p.lineno(1), p[1])
+        p[0] = node.BasicMode(p.lineno(1), p[1])
 
     def p_discrete_range_mode(self, p):
         '''discrete_range_mode : discrete_mode_name LPAREN literal_range RPAREN
@@ -142,14 +142,26 @@ class PeterParser(object):
                            | parenthesized_expression'''
         p[0] = p[1]
 
-    def p_literal(self, p):
-        '''literal : ICONST
-                    | TRUE
-                    | FALSE
-                    | CCONST
-                    | NULL
-                    | SCONST'''
-        p[0] = node.BasicNode(p.lineno(1), p[1])
+    def p_literal_int(self, p):
+        '''literal : ICONST'''
+        p[0] = node.LiteralNode(p.lineno(1), p[1], 'int')
+
+    def p_literal_bool(self, p):
+        '''literal : TRUE
+                   | FALSE'''
+        p[0] = node.LiteralNode(p.lineno(1), p[1] == 'true', 'bool')
+
+    def p_literal_char(self, p):
+        'literal : CCONST'
+        p[0] = node.LiteralNode(p.lineno(1), p[1], 'char')
+
+    def p_literal_string(self, p):
+        'literal : SCONST'
+        p[0] = node.LiteralNode(p.lineno(1), p[1], 'string')
+
+    def p_literal_null(self, p):
+        'literal : NULL'
+        p[0] = node.LiteralNode(p.lineno(1), p[1], 'null')
 
     def p_value_array_element(self, p):
         'value_array_element : primitive_value LBRACKET expression_list RBRACKET'
@@ -207,7 +219,7 @@ class PeterParser(object):
                                 | LTE
                                 | EQ
                                 | DIF'''
-        p[0] = node.BasicNode(p.lineno(1), p[1])
+        p[0] = node.OperatorNode(p.lineno(1), p[1])
 
     def p_operand1(self, p):
         '''operand1 : operand2
@@ -221,7 +233,7 @@ class PeterParser(object):
         '''operator2 : PLUS
                     | MINUS
                     | CONCAT'''
-        p[0] = node.BasicNode(p.lineno(1), p[1])
+        p[0] = node.OperatorNode(p.lineno(1), p[1])
 
     def p_operand2(self, p):
         '''operand2 : operand3
@@ -235,7 +247,7 @@ class PeterParser(object):
         '''arithmetic_multiplicative_operator : TIMES
                                                 | DIVIDE
                                                 | MODULO'''
-        p[0] = node.BasicNode(p.lineno(1), p[1])
+        p[0] = node.OperatorNode(p.lineno(1), p[1])
 
     def p_operand3(self, p):
         '''operand3 : operand4
@@ -249,7 +261,7 @@ class PeterParser(object):
     def p_monadic_operator(self, p):
         '''monadic_operator : MINUS
                             | EXCL'''
-        p[0] = node.BasicNode(p.lineno(1), p[1])
+        p[0] = node.OperatorNode(p.lineno(1), p[1])
 
     def p_operand4(self, p):
         '''operand4 : location
@@ -272,7 +284,7 @@ class PeterParser(object):
 
     def p_string_length(self, p):
         'string_length : ICONST'
-        p[0] = node.BasicNode(p.lineno(1), p[1])
+        p[0] = node.LiteralNode(p.lineno(1), p[1], 'int')
 
     def p_array_mode(self, p):
         'array_mode : ARRAY LBRACKET index_mode_list RBRACKET mode'
@@ -294,7 +306,7 @@ class PeterParser(object):
 
     def p_synonym_list(self, p):
         '''synonym_list : synonym_definition
-                                  | synonym_list COMMA synonym_definition'''
+                        | synonym_list COMMA synonym_definition'''
         p[0] = [p[1]] if len(p) == 2 else p[1] + [p[3]]
 
     def p_synonym_definition(self, p):
@@ -563,7 +575,7 @@ class PeterParser(object):
                                   | LENGTH
                                   | READ
                                   | PRINT'''
-        p[0] = node.BasicNode(p.lineno(1), p[1])
+        p[0] = node.BuiltinName(p.lineno(1), p[1])
 
     def p_label_id(self, p):
         'label_id : identifier'
