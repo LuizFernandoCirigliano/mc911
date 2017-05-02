@@ -220,10 +220,6 @@ class Declaration(IdentifierInitialization):
         super().__init__(line_number, identifier_list, mode=mode, initialization=initialization)
         self.display_name = 'dcl'
 
-    def __validate_node__(self):
-        self.issues = []
-        return super().__validate_node__()
-
 
 class SynonymStatement(Node):
     def __init__(self, line_number, synonym_list: list):
