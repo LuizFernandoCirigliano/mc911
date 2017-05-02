@@ -83,8 +83,18 @@ class Environment(object):
             return False
 
 
-def get_default_mode_env():
-    return Environment(CaseInsensitiveDict({
+class Context:
+    def __init__(self):
+        self.mode_env = self.get_default_mode_env()
+        self.var_env = self.get_default_var_env()
+
+    def reset(self):
+        self.mode_env = self.get_default_mode_env()
+        self.var_env = self.get_default_var_env()
+
+    @staticmethod
+    def get_default_mode_env():
+        return Environment(CaseInsensitiveDict({
             "int": int_type,
             "char": char_type,
             "string": string_type,
@@ -92,9 +102,9 @@ def get_default_mode_env():
             "void": void_type
         }))
 
+    @staticmethod
+    def get_default_var_env():
+        return Environment()
 
-def get_default_var_env():
-    return Environment()
 
-mode_env = get_default_mode_env()
-var_env = get_default_var_env()
+cur_context = Context()

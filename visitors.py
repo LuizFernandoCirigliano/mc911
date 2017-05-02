@@ -1,5 +1,5 @@
 from node import Node
-
+from environments import cur_context
 
 class GenericVisitor:
     @staticmethod
@@ -29,12 +29,15 @@ class ValidationVisitor(GenericVisitor):
     def f(node: Node):
         node.validate_node()
 
+    def visit_tree(self, root: Node):
+        cur_context.reset()
+        super().visit_tree(root)
+
 
 class PrintErrorVisitor(GenericVisitor):
     @staticmethod
     def f(node: Node):
         node.print_error()
-
 
 class VisualizationVisitor(GenericVisitor):
     pass

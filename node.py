@@ -1,5 +1,5 @@
 from case_ins_dict import CaseInsensitiveDict
-from environments import var_env, mode_env, Symbol
+from environments import cur_context, Symbol
 import errors
 
 
@@ -33,7 +33,7 @@ class Node(object):
 
     @property
     def expr_type(self):
-        return mode_env.lookup('void')
+        return cur_context.mode_env.lookup('void')
 
     def validate_node(self):
         self.issues = []
@@ -77,7 +77,7 @@ class BasicMode(Node):
 
     @property
     def expr_type(self):
-        return mode_env.lookup(self.node_type)
+        return cur_context.mode_env.lookup(self.node_type)
 
 
 class LiteralNode(Node):
@@ -93,7 +93,7 @@ class LiteralNode(Node):
 
     @property
     def expr_type(self):
-        return mode_env.lookup(self.type_name)
+        return cur_context.mode_env.lookup(self.type_name)
 
 
 class PassNode(Node):
@@ -128,10 +128,6 @@ class Program(Node):
     def children(self):
         return self.statement_list
 
-    def validate_node(self):
-        print("Validating Program Semantic")
-        return True
-
 
 class IdentifierInitialization(Node):
     def __init__(self, line_number, identifier_list, mode: Node = None, initialization: Node = None):
@@ -164,7 +160,7 @@ class IdentifierInitialization(Node):
             identifier.issues = [issue for issue in identifier.issues if type(issue) != errors.UndeclaredVariable]
 
         for identifier in self.identifier_list:
-            prev = var_env.lookup(identifier.name)
+            prev = cur_context.var_env.lookup(identifier.name)
             if prev:
                 self.issues.append(
                     errors.VariableRedeclaration(identifier.name,
@@ -172,7 +168,7 @@ class IdentifierInitialization(Node):
                 )
             expr_node = self.mode or self.initialization
             s = Symbol(identifier.name, expr_node.expr_type, self)
-            var_env.add_local(identifier.name, s)
+            cur_context.var_env.add_local(identifier.name, s)
 
         valid = self.mode.expr_type == self.initialization.expr_type if (self.initialization and self.mode) else True
         if not valid:
@@ -361,12 +357,12 @@ class Identifier(Node):
 
     @property
     def expr_type(self):
-        var = var_env.lookup(self.name)
-        return var.mode if var else mode_env.lookup('void')
+        var = cur_context.var_env.lookup(self.name)
+        return var.mode if var else cur_context.mode_env.lookup('void')
 
     def validate_node(self):
         self.issues = []
-        symbol = var_env.lookup(self.name)
+        symbol = cur_context.var_env.lookup(self.name)
         valid = symbol is not None
         if not valid:
             self.issues.append(errors.UndeclaredVariable(self.name))
@@ -613,6 +609,7 @@ class ConditionalExpression(Node):
             return False
         return True
 
+
 class ActionStatement(Node):
     def __init__(self, line_number, action, label_id=None):
         super().__init__(line_number)
@@ -697,13 +694,13 @@ class BuiltinCall(FuncCall):
 class BuiltinName(Node):
     # TODO Verify Functions
     ret_types = CaseInsensitiveDict({
-        'ABS': mode_env.lookup('int'),
-        'ASC': mode_env.lookup('int'),
-        'UPPER': mode_env.lookup('string'),
-        'LOWER': mode_env.lookup('string'),
-        'NUM': mode_env.lookup('int'),
-        'READ': mode_env.lookup('string'),
-        'PRINT': mode_env.lookup('void')
+        'ABS': cur_context.mode_env.lookup('int'),
+        'ASC': cur_context.mode_env.lookup('int'),
+        'UPPER': cur_context.mode_env.lookup('string'),
+        'LOWER': cur_context.mode_env.lookup('string'),
+        'NUM': cur_context.mode_env.lookup('int'),
+        'READ': cur_context.mode_env.lookup('string'),
+        'PRINT': cur_context.mode_env.lookup('void')
     })
 
     def __init__(self, line_number, name):
