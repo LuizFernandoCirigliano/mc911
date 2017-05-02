@@ -3,6 +3,7 @@ import json
 
 blue = '#42d9f4'
 red = '#ff9696'
+yellow = '#eeff00'
 
 
 def vis_data_for_tree(root):
@@ -17,14 +18,17 @@ def vis_data_for_tree(root):
 
         nonlocal nodes, edges, n_id, e_id
 
-        valid_node = len(node.issues) == 0
+        color = yellow if node is None else blue if node.is_valid else red
         node_dict = {
                       "id": n_id,
                       "label": str(node),
-                      "color": blue if valid_node else red
+                      "color": color
                     }
-        if not valid_node:
-            node_dict['title'] = "\n".join([issue.message() for issue in node.issues])
+        if not node.is_valid:
+            err_msg = "\n".join([issue.message() for issue in node.issues])\
+                            if len(node.issues) > 0 else "invalid children"
+
+            node_dict['title'] = err_msg
 
         nodes.append(node_dict)
 

@@ -3,19 +3,12 @@ from environments import cur_context, Symbol
 import errors
 
 
-def validate_list(my_list):
-    is_valid = True
-    for l in my_list:
-        if not l.is_valid():
-            is_valid = False
-    return is_valid
-
-
 class Node(object):
     def __init__(self, line_number):
         self.display_name = ''
         self.issues = []
         self.line_number = line_number
+        self.__is_valid__ = None
 
     def __str__(self):
         return self.display_name
@@ -35,8 +28,28 @@ class Node(object):
     def expr_type(self):
         return cur_context.mode_env.lookup('void')
 
+    @property
+    def is_valid(self):
+        return self.__is_valid__
+
     def validate_node(self):
         self.issues = []
+
+        for c in self.children:
+            c.validate_node()
+
+        self.__is_valid__ = self.__validate_node__()
+        if not self.__is_valid__:
+            return False
+
+        for c in self.children:
+            if not c.is_valid:
+                self.__is_valid__ = False
+                return False
+
+        return self.__is_valid__
+
+    def __validate_node__(self):
         return True
 
     def print_error(self):
@@ -117,6 +130,13 @@ class ListNode(Node):
     def children(self):
         return self.child_list
 
+    @property
+    def is_valid(self):
+        for c in self.child_list:
+            if not c.is_valid:
+                return False
+        return True
+
 
 class Program(Node):
     def __init__(self, line_number, statement_list):
@@ -154,18 +174,23 @@ class IdentifierInitialization(Node):
             l.append('init')
         return l
 
-    def validate_node(self):
+    def __validate_node__(self):
         # Remove undeclared variable error from variables in a declaration.
         for identifier in self.identifier_list:
             identifier.issues = [issue for issue in identifier.issues if type(issue) != errors.UndeclaredVariable]
+            if len(identifier.issues) == 0:
+                identifier.__is_valid__ = True
 
+        valid_identifiers = True
         for identifier in self.identifier_list:
             prev = cur_context.var_env.lookup(identifier.name)
             if prev:
-                self.issues.append(
+                identifier.issues.append(
                     errors.VariableRedeclaration(identifier.name,
                                                  prev.declaration.line_number)
                 )
+                identifier.__is_valid__ = False
+                valid_identifiers = False
             expr_node = self.mode or self.initialization
             s = Symbol(identifier.name, expr_node.expr_type, self)
             cur_context.var_env.add_local(identifier.name, s)
@@ -176,7 +201,7 @@ class IdentifierInitialization(Node):
                 errors.TypeMismatch(self.mode.expr_type, self.initialization.expr_type)
             )
 
-        return valid
+        return valid and valid_identifiers
 
 
 class DeclarationStatement(Node):
@@ -195,9 +220,9 @@ class Declaration(IdentifierInitialization):
         super().__init__(line_number, identifier_list, mode=mode, initialization=initialization)
         self.display_name = 'dcl'
 
-    def validate_node(self):
+    def __validate_node__(self):
         self.issues = []
-        return super().validate_node()
+        return super().__validate_node__()
 
 
 class SynonymStatement(Node):
@@ -218,10 +243,10 @@ class Synonym(IdentifierInitialization):
         super().__init__(line_number, identifier_list, mode=mode, initialization=expression)
         self.display_name = 'synonym'
 
-    def validate_node(self):
+    def __validate_node__(self):
         self.issues = []
 
-        valid = super().validate_node()
+        valid = super().__validate_node__()
 
         if not valid:
             return False
@@ -255,7 +280,7 @@ class UnOp(Node):
     def expr_type(self):
         return self.operand.expr_type
 
-    def validate_node(self):
+    def __validate_node__(self):
         self.issues = []
         valid = self.operator.symbol in self.valid_operators.get(self.operand.expr_type.type, [])
         if not valid:
@@ -290,7 +315,7 @@ class BinOp(Node):
     def expr_type(self):
         return self.left.expr_type
 
-    def validate_node(self):
+    def __validate_node__(self):
         self.issues = []
         equal_types = self.left.expr_type == self.right.expr_type
         if not equal_types:
@@ -360,7 +385,7 @@ class Identifier(Node):
         var = cur_context.var_env.lookup(self.name)
         return var.mode if var else cur_context.mode_env.lookup('void')
 
-    def validate_node(self):
+    def __validate_node__(self):
         self.issues = []
         symbol = cur_context.var_env.lookup(self.name)
         valid = symbol is not None
@@ -601,7 +626,7 @@ class ConditionalExpression(Node):
     def expr_type(self):
         return self.action_exp.expr_type
 
-    def validate_node(self):
+    def __validate_node__(self):
         if self.action_exp.expr_type != self.else_exp.expr_type:
             self.issues.append(
                 errors.TypeMismatch(self.action_exp.expr_type, self.else_exp.expr_type)

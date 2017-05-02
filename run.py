@@ -9,6 +9,7 @@ if __name__ == '__main__':
 
     # Build the parser
     AST = pp.parse(data)
+    AST.validate_node()
     semantic_visitor.visit_tree(AST)
 
     html = make_html(AST)
