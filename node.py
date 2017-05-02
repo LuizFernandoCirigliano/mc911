@@ -175,26 +175,8 @@ class IdentifierInitialization(Node):
         return l
 
     def __validate_node__(self):
-        # Remove undeclared variable error from variables in a declaration.
-        for identifier in self.identifier_list:
-            identifier.issues = [issue for issue in identifier.issues if type(issue) != errors.UndeclaredVariable]
-            if len(identifier.issues) == 0:
-                identifier.__is_valid__ = True
-
-        valid_identifiers = True
-        for identifier in self.identifier_list:
-            prev = cur_context.var_env.lookup(identifier.name)
-            if prev:
-                identifier.issues.append(
-                    errors.VariableRedeclaration(identifier.name,
-                                                 prev.declaration.line_number)
-                )
-                identifier.__is_valid__ = False
-                valid_identifiers = False
-            expr_node = self.mode or self.initialization
-            s = Symbol(identifier.name, expr_node.expr_type, self)
-            cur_context.var_env.add_local(identifier.name, s)
-
+        mode_node = self.mode or self.initialization
+        valid_identifiers = cur_context.insert_variables(self.identifier_list, mode_node.expr_type, self)
         valid = self.mode.expr_type == self.initialization.expr_type if (self.initialization and self.mode) else True
         if not valid:
             self.issues.append(
@@ -450,18 +432,6 @@ class ModeDefinition(Node):
         return ['', 'mode']
 
 
-class ProcedureStatement(Node):
-    def __init__(self, line_number, label_id, procedure_definition):
-        super().__init__(line_number)
-        self.display_name = 'proc-stat'
-        self.label_id = label_id
-        self.procedure_definition = procedure_definition
-
-    @property
-    def children(self):
-        return [self.label_id, self.procedure_definition]
-
-
 class ProcedureDefinition(Node):
     def __init__(self, line_number, statement_list=None, formal_parameter_list=None, result_spec=None):
         super().__init__(line_number)
@@ -480,6 +450,23 @@ class ProcedureDefinition(Node):
         if self.result_spec:
             c.append(self.result_spec)
         return c
+
+
+class ProcedureStatement(Node):
+    def __init__(self, line_number, label_id: Identifier, procedure_definition: ProcedureDefinition):
+        super().__init__(line_number)
+        self.display_name = 'proc-stat'
+        self.label_id = label_id
+        self.procedure_definition = procedure_definition
+
+    @property
+    def children(self):
+        return [self.label_id, self.procedure_definition]
+
+    def __validate_node__(self):
+        result = self.procedure_definition.result_spec
+        result_type = result.mode if result else cur_context.mode_env.lookup('void')
+        return cur_context.insert_variables([self.label_id], result_type, self)
 
 
 class FormalParameter(Node):
@@ -687,7 +674,7 @@ class ReturnAction(Node):
         return [self.expression] if self.expression else []
 
 
-class FuncCall(Node):
+class FuncCallBase(Node):
     def __init__(self, line_number, name, exp_list=None):
         super().__init__(line_number)
         self.display_name = 'func-call'
@@ -706,7 +693,7 @@ class FuncCall(Node):
         return ['name', '']
 
 
-class BuiltinCall(FuncCall):
+class BuiltinCall(FuncCallBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.display_name = 'builtin-call'
@@ -736,7 +723,7 @@ class BuiltinName(Node):
         return str(self.name)
 
 
-class ProcedureCall(FuncCall):
+class ProcedureCall(FuncCallBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.display_name = 'procedure-call'

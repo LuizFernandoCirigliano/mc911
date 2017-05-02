@@ -86,11 +86,11 @@ class Environment(object):
 class Context:
     def __init__(self):
         self.mode_env = self.get_default_mode_env()
-        self.var_env = self.get_default_var_env()
+        self.var_env = Environment()
 
     def reset(self):
         self.mode_env = self.get_default_mode_env()
-        self.var_env = self.get_default_var_env()
+        self.var_env = Environment()
 
     @staticmethod
     def get_default_mode_env():
@@ -102,9 +102,29 @@ class Context:
             "void": void_type
         }))
 
-    @staticmethod
-    def get_default_var_env():
-        return Environment()
+    def insert_variables(self, var_list, var_mode, declaration):
+        from errors import UndeclaredVariable, VariableRedeclaration
+        valid_identifiers = True
 
+        for identifier in var_list:
+            identifier.issues = [x for x in identifier.issues if type(x) != UndeclaredVariable]
+            if len(identifier.issues) == 0:
+                identifier.__is_valid__ = True
+            else:
+                valid_identifiers = False
+
+        for identifier in var_list:
+            prev = cur_context.var_env.lookup(identifier.name)
+            if prev:
+                identifier.issues.append(
+                    VariableRedeclaration(identifier.name,
+                                          prev.declaration.line_number)
+                )
+                identifier.__is_valid__ = False
+                valid_identifiers = False
+            s = Symbol(identifier.name, var_mode, declaration)
+            cur_context.var_env.add_local(identifier.name, s)
+
+        return valid_identifiers
 
 cur_context = Context()
