@@ -67,11 +67,6 @@ class Environment(object):
     def scope_level(self):
         return len(self.stack)
     def add_local(self, name, value):
-        prev = self.lookup(name)
-        if prev:
-            print("WARNING definition of \"{}\" on line {} shadows declaration on line {}".format(
-                name, value.declaration.line_number, prev.declaration.line_number
-            ))
         self.peek().add(name, value)
     def add_root(self, name, value):
         self.root.add(name, value)
@@ -87,7 +82,9 @@ class Environment(object):
         else:
             return False
 
-mode_env = Environment(CaseInsensitiveDict({
+
+def get_default_mode_env():
+    return Environment(CaseInsensitiveDict({
             "int": int_type,
             "char": char_type,
             "string": string_type,
@@ -96,5 +93,8 @@ mode_env = Environment(CaseInsensitiveDict({
         }))
 
 
-var_env = Environment()
+def get_default_var_env():
+    return Environment()
 
+mode_env = get_default_mode_env()
+var_env = get_default_var_env()

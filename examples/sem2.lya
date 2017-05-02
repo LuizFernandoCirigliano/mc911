@@ -1,0 +1,2 @@
+syn e int = 2;
+dcl e int = 1 + 1;

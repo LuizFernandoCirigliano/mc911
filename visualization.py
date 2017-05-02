@@ -5,26 +5,28 @@ blue = '#42d9f4'
 red = '#ff9696'
 
 
-def visDataForTree(root):
+def vis_data_for_tree(root):
     nodes = []
     edges = []
     n_id = 0
     e_id = 0
 
-    def recDataForTree(node, parent_id, label=None):
+    def rec_data_for_tree(node, parent_id, label=None):
         if not node:
             return
 
         nonlocal nodes, edges, n_id, e_id
 
-        node_dict = { "id": n_id,
+        valid_node = len(node.issues) == 0
+        node_dict = {
+                      "id": n_id,
                       "label": str(node),
-                      "color": blue if node.is_valid() else red}
-        if not node.is_valid():
-            node_dict['title'] = node.err_msg or "Invalid child node"
+                      "color": blue if valid_node else red
+                    }
+        if not valid_node:
+            node_dict['title'] = "\n".join([issue.message() for issue in node.issues])
 
         nodes.append(node_dict)
-
 
         if parent_id is not None:
             d = {"from": parent_id, "to": n_id, "id": e_id}
@@ -39,11 +41,11 @@ def visDataForTree(root):
         children, labels = node.children, node.labels
         for i, child in enumerate(children):
             label = labels[i] if labels else None
-            recDataForTree(child, cur_id, label)
+            rec_data_for_tree(child, cur_id, label)
 
-
-    recDataForTree(root, None)
+    rec_data_for_tree(root, None)
     return json.dumps(nodes), json.dumps(edges)
+
 
 def make_js(nodes, edges):
     js_string = "<script>"
@@ -68,6 +70,7 @@ def make_js(nodes, edges):
 
     js_string += "</script>\n"
     return js_string
+
 
 def make_head():
     head_string = "<head>\n\
@@ -94,7 +97,7 @@ def make_head():
 
 
 def make_html(root_node):
-    nodes, edges = visDataForTree(root_node)
+    nodes, edges = vis_data_for_tree(root_node)
     html_string = "<html>\n"
     html_string += make_head()
     html_string += "<body> \n\

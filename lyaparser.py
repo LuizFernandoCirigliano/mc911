@@ -5,7 +5,6 @@ import ply.yacc as yacc
 # Get the token map from the lexer.  This is required.
 from lyalex import LexerLuthor
 import node
-from AST import make_html
 
 
 class PeterParser(object):
@@ -339,35 +338,35 @@ class PeterParser(object):
 
     def p_procedure_definition_empty(self, p):
         'procedure_definition : PROC LPAREN RPAREN SEMI END'
-        p[0] = node.ProcedureDefintion(p.lexer.lineno)
+        p[0] = node.ProcedureDefinition(p.lexer.lineno)
 
     def p_procedure_definition_statement_only(self, p):
         'procedure_definition : PROC LPAREN RPAREN SEMI statement_list END'
-        p[0] = node.ProcedureDefintion(p.lexer.lineno, statement_list=p[5])
+        p[0] = node.ProcedureDefinition(p.lexer.lineno, statement_list=p[5])
 
     def p_procedure_definition_result_only(self, p):
         'procedure_definition : PROC LPAREN RPAREN result_spec SEMI END'
-        p[0] = node.ProcedureDefintion(p.lexer.lineno, result_spec=p[4])
+        p[0] = node.ProcedureDefinition(p.lexer.lineno, result_spec=p[4])
 
     def p_procedure_definition_parameter_only(self, p):
         'procedure_definition : PROC LPAREN formal_parameter_list RPAREN SEMI END'
-        p[0] = node.ProcedureDefintion(p.lexer.lineno, formal_parameter_list=p[3])
+        p[0] = node.ProcedureDefinition(p.lexer.lineno, formal_parameter_list=p[3])
 
     def p_procedure_definition_result_statement(self, p):
         'procedure_definition : PROC LPAREN RPAREN result_spec SEMI statement_list END'
-        p[0] = node.ProcedureDefintion(p.lexer.lineno, result_spec=p[4], statement_list=p[6])
+        p[0] = node.ProcedureDefinition(p.lexer.lineno, result_spec=p[4], statement_list=p[6])
 
     def p_procedure_definition_parameter_statement(self, p):
         'procedure_definition : PROC LPAREN formal_parameter_list RPAREN SEMI statement_list END'
-        p[0] = node.ProcedureDefintion(p.lexer.lineno, formal_parameter_list=p[3], statement_list=p[6])
+        p[0] = node.ProcedureDefinition(p.lexer.lineno, formal_parameter_list=p[3], statement_list=p[6])
 
     def p_procedure_definition_parameter_result(self, p):
         'procedure_definition : PROC LPAREN formal_parameter_list RPAREN result_spec SEMI END'
-        p[0] = node.ProcedureDefintion(p.lexer.lineno, formal_parameter_list=p[3], result_spec=p[5])
+        p[0] = node.ProcedureDefinition(p.lexer.lineno, formal_parameter_list=p[3], result_spec=p[5])
 
     def p_procedure_definition_all(self, p):
         'procedure_definition : PROC LPAREN formal_parameter_list RPAREN result_spec SEMI statement_list END'
-        p[0] = node.ProcedureDefintion(p.lexer.lineno, formal_parameter_list=p[3], result_spec=p[5], statement_list=p[7])
+        p[0] = node.ProcedureDefinition(p.lexer.lineno, formal_parameter_list=p[3], result_spec=p[5], statement_list=p[7])
 
     def p_formal_parameter_list(self, p):
         '''formal_parameter_list : formal_parameter
@@ -602,12 +601,9 @@ class PeterParser(object):
         return self.parser.parse(data, self.lexer.lexer)
 
 if __name__ == '__main__':
-    from helpers import get_data, bin_op_data
+    from helpers import get_data
     pp = PeterParser()
     data = get_data()
     # Build the parser
-    result = pp.parse(data)
-
-    html = make_html(result)
-    with open("ast.html", 'w') as html_file:
-        html_file.write(html)
+    AST = pp.parse(data)
+    print(AST)

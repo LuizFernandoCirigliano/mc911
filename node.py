@@ -1,24 +1,21 @@
 from case_ins_dict import CaseInsensitiveDict
 from environments import var_env, mode_env, Symbol
+import errors
 
 
 def validate_list(my_list):
+    is_valid = True
     for l in my_list:
         if not l.is_valid():
-            return False
-    return True
+            is_valid = False
+    return is_valid
 
 
 class Node(object):
-    display_name = ''
-    line_number = None
-    expr_type = mode_env.lookup('void')
-    valid_saved = None
-    err_msg = None
-
     def __init__(self, line_number):
+        self.display_name = ''
+        self.issues = []
         self.line_number = line_number
-        self.is_valid()
 
     def __str__(self):
         return self.display_name
@@ -34,24 +31,28 @@ class Node(object):
     def labels(self):
         return None
 
+    @property
+    def expr_type(self):
+        return mode_env.lookup('void')
+
     def validate_node(self):
+        self.issues = []
         return True
 
-    def is_valid(self):
-        if self.valid_saved is None:
-            valid_children = validate_list(self.children)
-            self.valid_saved = valid_children and self.validate_node()
-        return self.valid_saved
-
     def print_error(self):
-        from helpers import print_error
-        print_error('semantic', self.line_number, self.err_msg)
+        for issue in self.issues:
+            print("{} line {} {}: {}".format(
+                issue.issue_type.name,
+                self.line_number,
+                self.display_name,
+                issue.message()
+            ))
 
 
 class OperatorNode(Node):
-    def __init__(self, line_number, symbol:str):
-        self.symbol = symbol
+    def __init__(self, line_number, symbol: str):
         super().__init__(line_number)
+        self.symbol = symbol
 
     def __str__(self):
         return self.symbol
@@ -59,39 +60,47 @@ class OperatorNode(Node):
 
 class BasicNode(Node):
     def __init__(self, line_number, value):
-        self.value = value
         super().__init__(line_number)
+        self.value = value
 
     def __str__(self):
         return str(self.value)
 
 
 class BasicMode(Node):
-    def __init__(self, line_number, type):
-        self.expr_type = mode_env.lookup(type)
+    def __init__(self, line_number, node_type):
         super().__init__(line_number)
+        self.node_type = node_type
 
     def __str__(self):
         return str(self.expr_type)
 
+    @property
+    def expr_type(self):
+        return mode_env.lookup(self.node_type)
+
 
 class LiteralNode(Node):
     def __init__(self, line_number, value, type_name):
-        self.value = value
-        self.expr_type = mode_env.lookup(type_name)
         super().__init__(line_number)
+        self.value = value
+        self.type_name = type_name
 
     def __str__(self):
         if self.expr_type.type == 'char':
             return chr(int(self.value))
         return str(self.value)
 
+    @property
+    def expr_type(self):
+        return mode_env.lookup(self.type_name)
+
 
 class PassNode(Node):
-    def __init__(self, line_number, type, child):
-        self.display_name=type
-        self.child=child
+    def __init__(self, line_number, node_type, child):
         super().__init__(line_number)
+        self.display_name = node_type
+        self.child = child
 
     @property
     def children(self):
@@ -99,10 +108,10 @@ class PassNode(Node):
 
 
 class ListNode(Node):
-    def __init__(self, child_list, type='list'):
-        self.display_name = type
-        self.child_list = child_list
+    def __init__(self, child_list, node_type='list'):
         super().__init__(None)
+        self.display_name = node_type
+        self.child_list = child_list
 
     @property
     def children(self):
@@ -111,54 +120,123 @@ class ListNode(Node):
 
 class Program(Node):
     def __init__(self, line_number, statement_list):
+        super().__init__(line_number)
         self.display_name = 'program'
         self.statement_list = statement_list
-        super().__init__(line_number)
 
     @property
     def children(self):
         return self.statement_list
 
+    def validate_node(self):
+        print("Validating Program Semantic")
+        return True
+
+
+class IdentifierInitialization(Node):
+    def __init__(self, line_number, identifier_list, mode: Node = None, initialization: Node = None):
+        super().__init__(line_number)
+        self.identifier_list = identifier_list
+        self.mode = mode
+        self.initialization = initialization
+
+    @property
+    def children(self):
+        c = [ListNode(self.identifier_list, 'identifiers')]
+        if self.mode:
+            c.append(self.mode)
+        if self.initialization:
+            c.append(self.initialization)
+        return c
+
+    @property
+    def labels(self):
+        l = ['ids']
+        if self.mode:
+            l.append('mode')
+        if self.initialization:
+            l.append('init')
+        return l
+
+    def validate_node(self):
+        # Remove undeclared variable error from variables in a declaration.
+        for identifier in self.identifier_list:
+            identifier.issues = [issue for issue in identifier.issues if type(issue) != errors.UndeclaredVariable]
+
+        for identifier in self.identifier_list:
+            prev = var_env.lookup(identifier.name)
+            if prev:
+                self.issues.append(
+                    errors.VariableRedeclaration(identifier.name,
+                                                 prev.declaration.line_number)
+                )
+            expr_node = self.mode or self.initialization
+            s = Symbol(identifier.name, expr_node.expr_type, self)
+            var_env.add_local(identifier.name, s)
+
+        valid = self.mode.expr_type == self.initialization.expr_type if (self.initialization and self.mode) else True
+        if not valid:
+            self.issues.append(
+                errors.TypeMismatch(self.mode.expr_type, self.initialization.expr_type)
+            )
+
+        return valid
+
 
 class DeclarationStatement(Node):
     def __init__(self, line_number, declaration_list):
+        super().__init__(line_number)
         self.display_name = 'dcl-stat'
         self.declaration_list = declaration_list
-        super().__init__(line_number)
 
     @property
     def children(self):
         return self.declaration_list
 
 
-class Declaration(Node):
-    def __init__(self, line_number, identifier_list, mode, initialization=None):
+class Declaration(IdentifierInitialization):
+    def __init__(self, line_number, identifier_list, mode: Node, initialization: Node=None):
+        super().__init__(line_number, identifier_list, mode=mode, initialization=initialization)
         self.display_name = 'dcl'
-        self.identifier_list = identifier_list
-        self.mode = mode
-        self.initialization = initialization
-        super().__init__(line_number)
 
-        for identifier in identifier_list:
-            if type(identifier) is not Identifier:
-                raise TypeError
-            s = Symbol(identifier.name, self.mode.expr_type, self)
-            var_env.add_local(identifier.name, s)
+    def validate_node(self):
+        self.issues = []
+        return super().validate_node()
+
+
+class SynonymStatement(Node):
+    def __init__(self, line_number, synonym_list: list):
+        super().__init__(line_number)
+        self.display_name = 'synonym-stat'
+        self.synonym_list = synonym_list
 
     @property
     def children(self):
-        c = [ListNode(self.identifier_list, 'identifiers'), self.mode]
-        if self.initialization:
-            c.append(self.initialization)
-        return c
+        return self.synonym_list
+
+
+class Synonym(IdentifierInitialization):
+    valid_types = ['int', 'string', 'char', 'bool']
+
+    def __init__(self, line_number, identifier_list, expression: Node, mode: Node=None):
+        super().__init__(line_number, identifier_list, mode=mode, initialization=expression)
+        self.display_name = 'synonym'
 
     def validate_node(self):
-        valid = self.mode.expr_type == self.initialization.expr_type if self.initialization else True
+        self.issues = []
+
+        valid = super().validate_node()
+
         if not valid:
-            self.err_msg = "Declaration expected type {} but received {}".\
-                format(self.mode.expr_type, self.initialization.expr_type)
-            self.print_error()
-        return valid
+            return False
+
+        if self.initialization.expr_type.type not in self.valid_types:
+            self.issues.append(
+                errors.InvalidType(self.initialization.expr_type)
+            )
+            return False
+
+        return True
 
 
 class UnOp(Node):
@@ -167,40 +245,43 @@ class UnOp(Node):
         'int': ['-']
     })
 
-    def __init__(self, line_number, operator, operand):
+    def __init__(self, line_number, operator: OperatorNode, operand: Node):
+        super().__init__(line_number)
         self.display_name = 'un-op'
         self.operator = operator
         self.operand = operand
-        self.expr_type = self.operand.expr_type
-        super().__init__(line_number)
 
     @property
     def children(self):
         return [self.operator, self.operand]
 
+    @property
+    def expr_type(self):
+        return self.operand.expr_type
+
     def validate_node(self):
+        self.issues = []
         valid = self.operator.symbol in self.valid_operators.get(self.operand.expr_type.type, [])
         if not valid:
-            self.err_msg = "Invalid operator {} for un-op with {} operand".\
-                        format(self.operator.symbol, self.operand.expr_type)
-            self.print_error()
+            self.issues.append(
+                errors.InvalidOperator(self.operator.symbol, self.operand.expr_type)
+            )
         return valid
 
 
 class BinOp(Node):
     valid_operators = CaseInsensitiveDict({
-        'int': ['+', '-', '*', '/', '%', '==', '!=', '>', '>=', '<', '>=', '<', '<=' ],
+        'int': ['+', '-', '*', '/', '%', '==', '!=', '>', '>=', '<', '>=', '<', '<='],
         'bool': ['==', '!='],
         'string': ['==', '!=', '+']
     })
 
-    def __init__(self, line_number, left, op: OperatorNode, right):
+    def __init__(self, line_number, left: Node, op: OperatorNode, right: Node):
+        super().__init__(line_number)
         self.display_name = 'bin-op'
         self.left = left
         self.right = right
         self.op = op
-        self.expr_type = self.left.expr_type
-        super().__init__(line_number)
 
     def __str__(self):
         return str(self.op)
@@ -209,26 +290,32 @@ class BinOp(Node):
     def children(self):
         return [self.left, self.right]
 
+    @property
+    def expr_type(self):
+        return self.left.expr_type
+
     def validate_node(self):
-        if self.left.expr_type != self.right.expr_type:
-            self.err_msg = 'Binary Operation with mismatching types ({} and {})'\
-                        .format(self.left.expr_type, self.right.expr_type)
-            self.print_error()
+        self.issues = []
+        equal_types = self.left.expr_type == self.right.expr_type
+        if not equal_types:
+            self.issues.append(
+                errors.TypeMismatch(self.left.expr_type, self.right.expr_type)
+            )
             return False
-        else:
-            valid = self.op.symbol in self.valid_operators.get(self.left.expr_type.type, [])
-            if not valid:
-                self.err_msg = 'Invalid operator {} for bin-op with {} operands'.\
-                    format(self.op.symbol, self.left.expr_type)
-                self.print_error()
-            return valid
+
+        valid_operator = self.op.symbol in self.valid_operators.get(self.left.expr_type.type, [])
+        if not valid_operator:
+            self.issues.append(
+              errors.InvalidOperator(self.op.symbol, self.left.expr_type)
+            )
+        return valid_operator
 
 
 class ReferenceMode(Node):
     def __init__(self, line_number, mode):
+        super().__init__(line_number)
         self.display_name = 'ref-mode'
         self.mode = mode
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -237,10 +324,10 @@ class ReferenceMode(Node):
 
 class LiteralRange(Node):
     def __init__(self, line_number, lb, ub):
+        super().__init__(line_number)
         self.display_name = 'literal-range'
         self.lower_bound = lb
         self.upper_bound = ub
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -253,10 +340,10 @@ class LiteralRange(Node):
 
 class DiscreteRangeMode(Node):
     def __init__(self, line_number, mode, literal_range):
+        super().__init__(line_number)
         self.display_name = 'discrete-range-mode'
         self.mode = mode
         self.literal_range = literal_range
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -264,83 +351,33 @@ class DiscreteRangeMode(Node):
 
 
 class Identifier(Node):
-    def __init__(self, line_number, name):
+    def __init__(self, line_number, name: str):
+        super().__init__(line_number)
         self.display_name = 'identifier'
         self.name = name
-        super().__init__(line_number)
 
     def __str__(self):
         return "ID: " + self.name
 
     @property
     def expr_type(self):
-        return var_env.lookup(self.name).mode or mode_env.lookup('void')
+        var = var_env.lookup(self.name)
+        return var.mode if var else mode_env.lookup('void')
 
     def validate_node(self):
+        self.issues = []
         symbol = var_env.lookup(self.name)
         valid = symbol is not None
         if not valid:
-            self.err_msg = "Identifier {} not declared".format(self.name)
-            self.print_error()
+            self.issues.append(errors.UndeclaredVariable(self.name))
         return valid
-
-
-class SynonymStatement(Node):
-    def __init__(self, line_number, synonym_list: list):
-        self.display_name = 'synonym-stat'
-        self.synonym_list = synonym_list
-        super().__init__(line_number)
-
-    @property
-    def children(self):
-        return self.synonym_list
-
-    def validate_node(self):
-        return validate_list(self.synonym_list)
-
-
-class Synonym(Node):
-    valid_types = ['int', 'string', 'char', 'bool']
-
-    def __init__(self, line_number, identifier_list, expression, mode=None):
-        self.display_name = 'synonym'
-        self.identifier_list = identifier_list
-        self.expression = expression
-        self.mode = mode
-        super().__init__(line_number)
-
-    @property
-    def children(self):
-        if self.mode:
-            return [ListNode(self.identifier_list, 'identifiers'), self.expression, self.mode]
-        else:
-            return [ListNode(self.identifier_list, 'identifiers'), self.expression]
-
-    @property
-    def labels(self):
-        return ['ids', 'expr', 'mode'] if self.mode else ['ids', 'expr']
-
-    def validate_node(self):
-        if self.expression.expr_type.type not in self.valid_types:
-            self.err_msg = 'Invalid type for synonym expression'.\
-                        format(self.expression.expr_type)
-            self.print_error()
-            return False
-        if self.mode:
-            valid = self.mode.expr_type == self.expression.expr_type
-            if not valid:
-                self.err_msg = 'Synonym expression expected type {} but received {}'.\
-                            format(self.mode.expr_type, self.expression.expr_type)
-                self.print_error()
-            return valid
-        return True
 
 
 class StringMode(Node):
     def __init__(self, line_number, length):
+        super().__init__(line_number)
         self.display_name = 'string-mode'
         self.length = length
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -348,11 +385,11 @@ class StringMode(Node):
 
 
 class ArrayMode(Node):
-    def __init__(self, line_number, index_mode_list, mode=Node):
+    def __init__(self, line_number, index_mode_list, mode: Node=None):
+        super().__init__(line_number)
         self.display_name = 'array-mode'
         self.index_mode_list = index_mode_list
         self.mode = mode
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -370,22 +407,22 @@ class ArrayMode(Node):
 
 
 class NewModeStatement(Node):
-    def __init__(self, line_number, newmode_list):
-        self.display_name = 'new-mode-stat'
-        self.newmode_list = newmode_list
+    def __init__(self, line_number, new_mode_list):
         super().__init__(line_number)
+        self.display_name = 'new-mode-stat'
+        self.new_mode_list = new_mode_list
 
     @property
     def children(self):
-        return self.newmode_list
+        return self.new_mode_list
 
 
 class ModeDefinition(Node):
     def __init__(self, line_number, identifier_list, mode):
+        super().__init__(line_number)
         self.display_name = 'mode-def'
         self.mode = mode
         self.identifier_list = identifier_list
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -398,23 +435,23 @@ class ModeDefinition(Node):
 
 class ProcedureStatement(Node):
     def __init__(self, line_number, label_id, procedure_definition):
+        super().__init__(line_number)
         self.display_name = 'proc-stat'
         self.label_id = label_id
         self.procedure_definition = procedure_definition
-        super().__init__(line_number)
 
     @property
     def children(self):
         return [self.label_id, self.procedure_definition]
 
 
-class ProcedureDefintion(Node):
+class ProcedureDefinition(Node):
     def __init__(self, line_number, statement_list=None, formal_parameter_list=None, result_spec=None):
+        super().__init__(line_number)
         self.display_name = 'proc-def'
         self.statement_list = statement_list
         self.formal_parameter_list = formal_parameter_list
         self.result_spec = result_spec
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -430,10 +467,10 @@ class ProcedureDefintion(Node):
 
 class FormalParameter(Node):
     def __init__(self, line_number, id_list, parameter_spec):
+        super().__init__(line_number)
         self.display_name = 'formal-param'
         self.parameter_spec = parameter_spec
         self.identifier_list = id_list
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -442,11 +479,11 @@ class FormalParameter(Node):
 
 class Spec(Node):
     def __init__(self, line_number, spec_type, mode, attribute=None):
+        super().__init__(line_number)
         self.display_name = 'spec'
         self.spec_type = spec_type
         self.mode = mode
-        self.attribute=attribute
-        super().__init__(line_number)
+        self.attribute = attribute
 
     @property
     def children(self):
@@ -461,9 +498,9 @@ class Spec(Node):
 
 class ReferenceLocation(Node):
     def __init__(self, line_number, location):
+        super().__init__(line_number)
         self.display_name = 'ref-loc'
         self.location = location
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -472,9 +509,9 @@ class ReferenceLocation(Node):
 
 class DereferenceLocation(Node):
     def __init__(self, line_number, location):
-        self.display_name='deref-loc'
-        self.location = location
         super().__init__(line_number)
+        self.display_name = 'deref-loc'
+        self.location = location
 
     @property
     def children(self):
@@ -483,12 +520,12 @@ class DereferenceLocation(Node):
 
 class Slice(Node):
     def __init__(self, line_number, data_type, location, exp_begin, exp_end):
+        super().__init__(line_number)
         self.display_name = 'slice'
         self.data_type = data_type
         self.location = location
         self.exp_begin = exp_begin
         self.exp_end = exp_end
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -497,10 +534,10 @@ class Slice(Node):
 
 class StringElement(Node):
     def __init__(self, line_number, location, element):
+        super().__init__(line_number)
         self.display_name = 'string-element'
         self.location = location
         self.element = element
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -513,10 +550,10 @@ class StringElement(Node):
 
 class ArrayElement(Node):
     def __init__(self, line_number, location, exp_list):
+        super().__init__(line_number)
         self.display_name = 'array-element'
         self.location = location
         self.exp_list = exp_list
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -526,12 +563,13 @@ class ArrayElement(Node):
     def labels(self):
         return ['array', '']
 
+
 class ElsIf(Node):
     def __init__(self, line_number, condition, action):
+        super().__init__(line_number)
         self.display_name = 'elsif'
         self.condition = condition
         self.action = action
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -539,13 +577,13 @@ class ElsIf(Node):
 
 
 class ConditionalExpression(Node):
-    def __init__(self, line_number, condition_exp, action_exp, else_exp, elsif_list=None):
-        self.display_name = 'cond'
+    def __init__(self, line_number, condition_exp: Node, action_exp: Node, else_exp: Node, elsif_list=None):
+        super().__init__(line_number)
+        self.display_name = 'cond-expr'
         self.condition_exp = condition_exp
         self.action_exp = action_exp
         self.else_exp = else_exp
         self.elsif_list = elsif_list
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -563,13 +601,24 @@ class ConditionalExpression(Node):
         c.append('else')
         return c
 
+    @property
+    def expr_type(self):
+        return self.action_exp.expr_type
+
+    def validate_node(self):
+        if self.action_exp.expr_type != self.else_exp.expr_type:
+            self.issues.append(
+                errors.TypeMismatch(self.action_exp.expr_type, self.else_exp.expr_type)
+            )
+            return False
+        return True
 
 class ActionStatement(Node):
     def __init__(self, line_number, action, label_id=None):
+        super().__init__(line_number)
         self.display_name = 'action-sttmnt'
         self.action = action
         self.label_id = label_id
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -581,11 +630,11 @@ class ActionStatement(Node):
 
 class AssignmentAction(Node):
     def __init__(self, line_number, location, operator, expression):
+        super().__init__(line_number)
         self.display_name = 'assign-act'
         self.location = location
         self.operator = operator
         self.expression = expression
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -601,9 +650,9 @@ class AssignmentAction(Node):
 
 class AssigningOperator(Node):
     def __init__(self, line_number, closed_dyadic_op=None):
+        super().__init__(line_number)
         self.display_name = 'assign-op'
         self.closed_dyadic_op = closed_dyadic_op
-        super().__init__(line_number)
 
     def __str__(self):
         return "{}=".format(self.closed_dyadic_op) if self.closed_dyadic_op else "="
@@ -611,9 +660,9 @@ class AssigningOperator(Node):
 
 class ReturnAction(Node):
     def __init__(self, line_number, expression=None):
-        self.display_name = 'return'
-        self.expression=expression
         super().__init__(line_number)
+        self.display_name = 'return'
+        self.expression = expression
 
     @property
     def children(self):
@@ -622,10 +671,10 @@ class ReturnAction(Node):
 
 class FuncCall(Node):
     def __init__(self, line_number, name, exp_list=None):
-        self.display_name='func-call'
+        super().__init__(line_number)
+        self.display_name = 'func-call'
         self.name = name
         self.arg_list = exp_list
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -642,11 +691,11 @@ class FuncCall(Node):
 class BuiltinCall(FuncCall):
     def __init__(self, *args):
         super().__init__(*args)
-        self.display_name='builtin-call'
+        self.display_name = 'builtin-call'
 
 
 class BuiltinName(Node):
-    # TODO Verificar essas funções
+    # TODO Verify Functions
     ret_types = CaseInsensitiveDict({
         'ABS': mode_env.lookup('int'),
         'ASC': mode_env.lookup('int'),
@@ -658,9 +707,12 @@ class BuiltinName(Node):
     })
 
     def __init__(self, line_number, name):
-        self.name = name
-        self.expr_type = self.ret_types[name]
         super().__init__(line_number)
+        self.name = name
+
+    @property
+    def expr_type(self):
+        return self.ret_types[self.name]
 
     def __str__(self):
         return str(self.name)
@@ -669,18 +721,18 @@ class BuiltinName(Node):
 class ProcedureCall(FuncCall):
     def __init__(self, *args):
         super().__init__(*args)
-        self.display_name = 'proc-call'
+        self.display_name = 'procedure-call'
 
 
 class StepEnumeration(Node):
     def __init__(self, line_number, up, identifier, from_exp, to_exp, step_val=None):
+        super().__init__(line_number)
         self.display_name = "enum-up" if up else "enum-down"
         self.up = up
         self.identifier = identifier
         self.from_exp = from_exp
         self.to_exp = to_exp
         self.step_val = step_val
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -699,11 +751,11 @@ class StepEnumeration(Node):
 
 class RangeEnum(Node):
     def __init__(self, line_number, up, identifier, discrete_mode):
+        super().__init__(line_number)
         self.display_name = "rng-up" if up else "rng-down"
         self.up = up
         self.identifier = identifier
         self.discrete_mode = discrete_mode
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -712,18 +764,18 @@ class RangeEnum(Node):
 
 class ControlPart(Node):
     def __init__(self, line_number, for_ctrl=None, while_ctrl=None):
-        self.display_name='ctrl-part'
+        super().__init__(line_number)
+        self.display_name = 'ctrl-part'
         self.for_ctrl = for_ctrl
         self.while_ctrl = while_ctrl
-        super().__init__(line_number)
 
     @property
     def children(self):
         c = []
         if self.for_ctrl:
-            c.append( self.for_ctrl )
+            c.append(self.for_ctrl)
         if self.while_ctrl:
-            c.append( self.while_ctrl )
+            c.append(self.while_ctrl)
         return c
 
     @property
@@ -738,10 +790,10 @@ class ControlPart(Node):
 
 class DoAction(Node):
     def __init__(self, line_number, ctrl_part=None, action_st_list=None):
-        self.display_name='do-act'
+        super().__init__(line_number)
+        self.display_name = 'do-act'
         self.ctrl_part = ctrl_part
         self.action_st_list = action_st_list
-        super().__init__(line_number)
 
     @property
     def children(self):
@@ -755,12 +807,12 @@ class DoAction(Node):
 
 class IfAction(Node):
     def __init__(self, line_number, expression, then_clause, elsif_clause=None, else_clause=None):
-        self.display_name='if-act'
-        self.expression=expression
-        self.then_clause=then_clause
-        self.elsif_clause=elsif_clause
-        self.else_clause=else_clause
         super().__init__(line_number)
+        self.display_name = 'if-act'
+        self.expression = expression
+        self.then_clause = then_clause
+        self.elsif_clause = elsif_clause
+        self.else_clause = else_clause
 
     @property
     def children(self):
