@@ -2,8 +2,8 @@ from case_ins_dict import CaseInsensitiveDict
 
 
 class ExprType(object):
-    def __init__(self, type: str, specific=None):
-        self.type = type
+    def __init__(self, expr_type: str, specific=None):
+        self.type = expr_type
         self.specific = specific
 
     def __cmp__(self, other):
@@ -58,24 +58,32 @@ class Environment(object):
         self.stack.append(self.root)
         if root_dict:
             self.root.update(root_dict)
+
     def push(self, enclosure):
         self.stack.append(SymbolTable(decl=enclosure))
+
     def pop(self):
         self.stack.pop()
+
     def peek(self):
         return self.stack[-1]
+
     def scope_level(self):
         return len(self.stack)
+
     def add_local(self, name, value):
         self.peek().add(name, value)
+
     def add_root(self, name, value):
         self.root.add(name, value)
+
     def lookup(self, name):
         for scope in reversed(self.stack):
             hit = scope.lookup(name)
             if hit is not None:
                 return hit
         return None
+
     def find(self, name):
         if name in self.stack[-1]:
             return True
@@ -117,9 +125,9 @@ class Context:
                 valid_identifiers = False
 
         for identifier in var_list:
-            prev = cur_context.var_env.find(identifier.name)
+            prev = self.var_env.find(identifier.name)
             if prev:
-                prev_var = cur_context.var_env.lookup(identifier.name)
+                prev_var = self.var_env.lookup(identifier.name)
                 identifier.issues.append(
                     VariableRedeclaration(identifier.name,
                                           prev_var.declaration.line_number)
@@ -128,7 +136,7 @@ class Context:
                 valid_identifiers = False
             else:
                 s = Symbol(identifier.name, var_mode, declaration)
-                cur_context.var_env.add_local(identifier.name, s)
+                self.var_env.add_local(identifier.name, s)
 
         return valid_identifiers
 
