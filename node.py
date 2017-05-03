@@ -1,7 +1,7 @@
 from case_ins_dict import CaseInsensitiveDict
 from environments import cur_context, Symbol
 import errors
-
+from typing import List
 
 class Node(object):
     def __init__(self, line_number):
@@ -158,7 +158,8 @@ class IdentifierInitialization(Node):
 
     @property
     def children(self):
-        c = [ListNode(self.identifier_list, 'identifiers')]
+        c = list()
+        c.append(ListNode(self.identifier_list, 'identifiers'))
         if self.mode:
             c.append(self.mode)
         if self.initialization:
@@ -392,7 +393,8 @@ class ArrayMode(Node):
 
     @property
     def children(self):
-        c = [ListNode(self.index_mode_list, 'index_mode_list')]
+        c = list()
+        c.append(ListNode(self.index_mode_list, 'index_mode_list'))
         if self.mode:
             c.append(self.mode)
         return c
@@ -432,8 +434,21 @@ class ModeDefinition(Node):
         return ['', 'mode']
 
 
+class FormalParameter(Node):
+    def __init__(self, line_number, id_list, parameter_spec):
+        super().__init__(line_number)
+        self.display_name = 'formal-param'
+        self.parameter_spec = parameter_spec
+        self.identifier_list = id_list
+
+    @property
+    def children(self):
+        return [ListNode(self.identifier_list, 'id_list'), self.parameter_spec]
+
+
 class ProcedureDefinition(Node):
-    def __init__(self, line_number, statement_list=None, formal_parameter_list=None, result_spec=None):
+    def __init__(self, line_number, statement_list=None,
+                 formal_parameter_list: List[FormalParameter]=None, result_spec=None):
         super().__init__(line_number)
         self.display_name = 'proc-def'
         self.statement_list = statement_list
@@ -459,26 +474,27 @@ class ProcedureStatement(Node):
         self.label_id = label_id
         self.procedure_definition = procedure_definition
 
+        result = self.procedure_definition.result_spec
+        self.mode = result.mode if result else cur_context.mode_env.lookup('void')
+
     @property
     def children(self):
         return [self.label_id, self.procedure_definition]
 
-    def __validate_node__(self):
-        result = self.procedure_definition.result_spec
-        result_type = result.mode if result else cur_context.mode_env.lookup('void')
-        return cur_context.insert_variables([self.label_id], result_type, self)
+    def validate_node(self):
+        cur_context.insert_variables([self.label_id], self.mode, self)
+        cur_context.var_env.push(self)
 
+        formal_params = self.procedure_definition.formal_parameter_list
+        if formal_params:
+            for param in formal_params:
+                cur_context.insert_variables(param.identifier_list, param.parameter_spec.mode.expr_type, self)
 
-class FormalParameter(Node):
-    def __init__(self, line_number, id_list, parameter_spec):
-        super().__init__(line_number)
-        self.display_name = 'formal-param'
-        self.parameter_spec = parameter_spec
-        self.identifier_list = id_list
+        super().validate_node()
 
-    @property
-    def children(self):
-        return [ListNode(self.identifier_list, 'id_list'), self.parameter_spec]
+        cur_context.var_env.pop()
+
+        return
 
 
 class Spec(Node):
@@ -550,6 +566,10 @@ class StringElement(Node):
     @property
     def labels(self):
         return ['string', 'element']
+
+    @property
+    def expr_type(self):
+        return cur_context.mode_env.lookup('char')
 
 
 class ArrayElement(Node):
@@ -675,22 +695,29 @@ class ReturnAction(Node):
 
 
 class FuncCallBase(Node):
-    def __init__(self, line_number, name, exp_list=None):
+    def __init__(self, line_number, identifier: Identifier, exp_list=None):
         super().__init__(line_number)
         self.display_name = 'func-call'
-        self.name = name
+        self.identifier = identifier
         self.arg_list = exp_list
 
     @property
     def children(self):
-        c = [self.name]
+        c = list()
+        c.append(self.identifier)
         if self.arg_list:
             c.append(ListNode(self.arg_list, 'args'))
         return c
 
     @property
     def labels(self):
-        return ['name', '']
+        return ['id', '']
+
+    @property
+    def expr_type(self):
+        symbol = cur_context.var_env.lookup(self.identifier.name)
+        mode = symbol.mode if symbol else cur_context.var_env.lookup('void')
+        return mode.expr_type
 
 
 class BuiltinCall(FuncCallBase):

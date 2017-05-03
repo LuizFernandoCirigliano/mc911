@@ -52,7 +52,7 @@ class SymbolTable(CaseInsensitiveDict):
 
 
 class Environment(object):
-    def __init__(self, root_dict:CaseInsensitiveDict=None):
+    def __init__(self, root_dict: CaseInsensitiveDict=None):
         self.stack = []
         self.root = SymbolTable()
         self.stack.append(self.root)
@@ -102,7 +102,10 @@ class Context:
             "void": void_type
         }))
 
-    def insert_variables(self, var_list, var_mode, declaration):
+    def insert_variables(self, var_list, var_mode: ExprType, declaration):
+        if var_list is None:
+            return True
+
         from errors import UndeclaredVariable, VariableRedeclaration
         valid_identifiers = True
 
