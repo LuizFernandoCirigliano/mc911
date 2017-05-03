@@ -14,6 +14,10 @@ class ExprType(object):
             return "{}_{}".format(self.detail, self.type)
         return self.type
 
+    @property
+    def expr_type(self):
+        return self
+
 int_type = ExprType("int")
 bool_type = ExprType("bool")
 char_type = ExprType("char")
@@ -24,7 +28,7 @@ char_array_type = ExprType("array", char_type)
 
 
 class Symbol(object):
-    def __init__(self, name, mode, declaration=None):
+    def __init__(self, name, mode: ExprType, declaration=None):
         self.name = name
         self.mode = mode
         self.declaration = declaration

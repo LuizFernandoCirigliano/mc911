@@ -1,7 +1,8 @@
 from case_ins_dict import CaseInsensitiveDict
-from environments import cur_context, Symbol
+from environments import *
 import errors
 from typing import List
+
 
 class Node(object):
     def __init__(self, line_number):
@@ -25,7 +26,7 @@ class Node(object):
         return None
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return cur_context.mode_env.lookup('void')
 
     @property
@@ -89,7 +90,7 @@ class BasicMode(Node):
         return str(self.expr_type)
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return cur_context.mode_env.lookup(self.node_type)
 
 
@@ -105,7 +106,7 @@ class LiteralNode(Node):
         return str(self.value)
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return cur_context.mode_env.lookup(self.type_name)
 
 
@@ -256,7 +257,7 @@ class UnOp(Node):
         return [self.operator, self.operand]
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return self.operand.expr_type
 
     def __validate_node__(self):
@@ -291,7 +292,7 @@ class BinOp(Node):
         return [self.left, self.right]
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return self.left.expr_type
 
     def __validate_node__(self):
@@ -360,7 +361,7 @@ class Identifier(Node):
         return "ID: " + self.name
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         var = cur_context.var_env.lookup(self.name)
         return var.mode if var else cur_context.mode_env.lookup('void')
 
@@ -407,7 +408,7 @@ class ArrayMode(Node):
         return l
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return cur_context.mode_env.lookup('{}_array'.format(self.mode))
 
 
@@ -436,6 +437,9 @@ class ModeDefinition(Node):
     @property
     def labels(self):
         return ['', 'mode']
+
+    def validate_node(self):
+        pass
 
 
 class FormalParameter(Node):
@@ -494,11 +498,11 @@ class ProcedureStatement(Node):
             for param in formal_params:
                 cur_context.insert_variables(param.identifier_list, param.parameter_spec.mode.expr_type, self)
 
-        super().validate_node()
+        valid = super().validate_node()
 
         cur_context.var_env.pop()
 
-        return
+        return valid
 
 
 class Spec(Node):
@@ -572,7 +576,7 @@ class StringElement(Node):
         return ['string', 'element']
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return cur_context.mode_env.lookup('char')
 
 
@@ -592,7 +596,7 @@ class ArrayElement(Node):
         return ['array', '']
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return self.location.expr_type.detail
 
 
@@ -634,7 +638,7 @@ class ConditionalExpression(Node):
         return c
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return self.action_exp.expr_type
 
     def __validate_node__(self):
@@ -722,10 +726,9 @@ class FuncCallBase(Node):
         return ['id', '']
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         symbol = cur_context.var_env.lookup(self.identifier.name)
-        mode = symbol.mode if symbol else cur_context.var_env.lookup('void')
-        return mode.expr_type
+        return symbol.mode.expr_type if (symbol and symbol.mode) else cur_context.mode_env.lookup('void')
 
 
 class BuiltinCall(FuncCallBase):
@@ -751,7 +754,7 @@ class BuiltinName(Node):
         self.name = name
 
     @property
-    def expr_type(self):
+    def expr_type(self) -> ExprType:
         return self.ret_types[self.name]
 
     def __str__(self):
@@ -788,6 +791,12 @@ class StepEnumeration(Node):
             e.append('step-val')
         return e
 
+    def validate_node(self):
+        cur_context.insert_variables([self.identifier], int_type, self)
+
+        valid = super().validate_node()
+        return valid
+
 
 class RangeEnum(Node):
     def __init__(self, line_number, up, identifier, discrete_mode):
@@ -800,6 +809,11 @@ class RangeEnum(Node):
     @property
     def children(self):
         return [self.identifier, self.discrete_mode]
+
+    def validate_node(self):
+        cur_context.insert_variables([self.identifier], int_type, self)
+        valid = super().validate_node()
+        return valid
 
 
 class ControlPart(Node):
@@ -843,6 +857,12 @@ class DoAction(Node):
         if self.action_st_list:
             c.append(ListNode(self.action_st_list))
         return c
+    #
+    # def validate_node(self):
+    #     cur_context.var_env.push(self)
+    #     valid = super().validate_node()
+    #     cur_context.var_env.pop()
+    #     return valid
 
 
 class IfAction(Node):
