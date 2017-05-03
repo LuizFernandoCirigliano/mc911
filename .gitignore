@@ -91,6 +91,6 @@ ENV/
 # Project
 .idea
 
-ast.html
+*.html
 *.out
 parsetab.py

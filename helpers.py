@@ -29,11 +29,8 @@ def get_data():
         #   /*DCL*/
         # '''
         data = bin_op_data
-    else:
-        file_name = sys.argv[1]
-        file = open(file_name)
-        data = file.read()
 
-    return  data
+
+    return data
 
 bin_op_data = "1 + 1"
