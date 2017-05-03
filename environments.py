@@ -117,7 +117,7 @@ class Context:
                 valid_identifiers = False
 
         for identifier in var_list:
-            prev = cur_context.var_env.lookup(identifier.name)
+            prev = cur_context.var_env.find(identifier.name)
             if prev:
                 identifier.issues.append(
                     VariableRedeclaration(identifier.name,
@@ -125,8 +125,9 @@ class Context:
                 )
                 identifier.__is_valid__ = False
                 valid_identifiers = False
-            s = Symbol(identifier.name, var_mode, declaration)
-            cur_context.var_env.add_local(identifier.name, s)
+            else:
+                s = Symbol(identifier.name, var_mode, declaration)
+                cur_context.var_env.add_local(identifier.name, s)
 
         return valid_identifiers
 
