@@ -1,4 +1,3 @@
-from node import Node
 import json
 
 blue = '#42d9f4'
@@ -80,8 +79,8 @@ def make_head():
     head_string = "<head>\n\
     <meta charset=\"utf-8\">\n\
     <title>Hierarchical Layout without Physics</title>\n\
-    <script type=\"text/javascript\" src=\"./vis/vis.js\"></script>\n\
-    <link href=\"./vis/vis-network.min.css\" rel=\"stylesheet\" type=\"text/css\" />\n\
+    <script type=\"text/javascript\" src=\"../vis/vis.js\"></script>\n\
+    <link href=\"../vis/vis-network.min.css\" rel=\"stylesheet\" type=\"text/css\" />\n\
     <style type=\"text/css\">\n\
         #network{\n\
             width: 100%;\n\
