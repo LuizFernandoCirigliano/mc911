@@ -5,3 +5,17 @@ od;
 
 dcl s chars[8] = "setembro";
 dcl c char = s[1];
+
+
+dcl x int = 2, z bool = false;
+
+x = 1;
+z = true;
+
+
+p1:proc () returns (int);
+  dcl x int = 3;
+end;
+p1();
+
+p1() = 1;

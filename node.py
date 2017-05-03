@@ -1,4 +1,3 @@
-from case_ins_dict import CaseInsensitiveDict
 from environments import *
 import errors
 from typing import List
@@ -693,6 +692,14 @@ class AssignmentAction(Node):
     def __str__(self):
         return str(self.operator)
 
+    def __validate_node__(self):
+        if self.location.expr_type != self.expression.expr_type:
+            self.issues.append(
+                errors.TypeMismatch(self.location.expr_type, self.expression.expr_type)
+            )
+            return False
+        return True
+
 
 class AssigningOperator(Node):
     def __init__(self, line_number, closed_dyadic_op=None):
@@ -866,12 +873,12 @@ class DoAction(Node):
         if self.action_st_list:
             c.append(ListNode(self.action_st_list))
         return c
-    #
-    # def validate_node(self):
-    #     cur_context.var_env.push(self)
-    #     valid = super().validate_node()
-    #     cur_context.var_env.pop()
-    #     return valid
+
+    def validate_node(self):
+        cur_context.var_env.push(self)
+        valid = super().validate_node()
+        cur_context.var_env.pop()
+        return valid
 
 
 class IfAction(Node):
