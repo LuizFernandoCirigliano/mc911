@@ -95,12 +95,10 @@ class PeterParser(object):
         '''initialization : ASSIGN expression'''
         p[0] = p[2]
 
-
+    # | string_element | string_slice
     def p_location(self, p):
         '''location :    identifier
                          | dereferenced_reference
-                         | string_element
-                         | string_slice
                          | array_element
                          | array_slice
                          | call_action'''
@@ -110,17 +108,17 @@ class PeterParser(object):
         'dereferenced_reference : location ARROW'
         p[0] = node.DereferenceLocation(p.lexer.lineno, p[1])
 
-    def p_string_element(self, p):
-        'string_element : identifier LBRACKET start_element RBRACKET'
-        p[0] = node.StringElement(p.lexer.lineno, p[1], p[3])
+    # def p_string_element(self, p):
+    #     'string_element : identifier LBRACKET start_element RBRACKET'
+    #     p[0] = node.StringElement(p.lexerf.lineno, p[1], p[3])
 
-    def p_start_element(self, p):
-        'start_element : expression'
-        p[0] = p[1]
-
-    def p_string_slice(self, p):
-        'string_slice : identifier LBRACKET expression COLON expression RBRACKET'
-        p[0] = node.Slice(p.lexer.lineno, 'string', p[1], p[3], p[5])
+    # def p_start_element(self, p):
+    #     'start_element : expression'
+    #     p[0] = p[1]
+    #
+    # def p_string_slice(self, p):
+    #     'string_slice : identifier LBRACKET expression COLON expression RBRACKET'
+    #     p[0] = node.Slice(p.lexer.lineno, 'string', p[1], p[3], p[5])
 
     def p_array_element(self, p):
         'array_element : location LBRACKET expression_list RBRACKET'

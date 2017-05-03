@@ -2,16 +2,16 @@ from case_ins_dict import CaseInsensitiveDict
 
 
 class ExprType(object):
-    def __init__(self, expr_type: str, specific=None):
+    def __init__(self, expr_type: str, detail: object =None):
         self.type = expr_type
-        self.specific = specific
+        self.detail = detail
 
     def __cmp__(self, other):
-        return self.type == other.type and self.specific == other.name
+        return self.type == other.type and self.detail == other.detail
 
     def __str__(self):
-        if self.specific:
-            return "{}-{}".format(self.type, self.specific)
+        if self.detail:
+            return "{}_{}".format(self.detail, self.type)
         return self.type
 
 int_type = ExprType("int")
@@ -19,7 +19,8 @@ bool_type = ExprType("bool")
 char_type = ExprType("char")
 string_type = ExprType("string")
 void_type = ExprType("void")
-array_type = ExprType("array")
+int_array_type = ExprType("array", int_type)
+char_array_type = ExprType("array", char_type)
 
 
 class Symbol(object):
@@ -107,7 +108,9 @@ class Context:
             "char": char_type,
             "string": string_type,
             "bool": bool_type,
-            "void": void_type
+            "void": void_type,
+            "int_array": int_array_type,
+            "char_array": char_array_type
         }))
 
     def insert_variables(self, var_list, var_mode: ExprType, declaration):

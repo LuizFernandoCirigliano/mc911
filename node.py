@@ -406,6 +406,10 @@ class ArrayMode(Node):
             l.append('mode')
         return l
 
+    @property
+    def expr_type(self):
+        return cur_context.mode_env.lookup('{}_array'.format(self.mode))
+
 
 class NewModeStatement(Node):
     def __init__(self, line_number, new_mode_list):
@@ -586,6 +590,10 @@ class ArrayElement(Node):
     @property
     def labels(self):
         return ['array', '']
+
+    @property
+    def expr_type(self):
+        return self.location.expr_type.detail
 
 
 class ElsIf(Node):
