@@ -119,9 +119,10 @@ class Context:
         for identifier in var_list:
             prev = cur_context.var_env.find(identifier.name)
             if prev:
+                prev_var = cur_context.var_env.lookup(identifier.name)
                 identifier.issues.append(
                     VariableRedeclaration(identifier.name,
-                                          prev.declaration.line_number)
+                                          prev_var.declaration.line_number)
                 )
                 identifier.__is_valid__ = False
                 valid_identifiers = False
