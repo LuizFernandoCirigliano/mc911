@@ -277,6 +277,8 @@ class BinOp(Node):
         'string': ['==', '!=', '+']
     })
 
+    int_to_bool_ops = ['==', '!=', '>', '>=', '<', '>=', '<', '<=']
+
     def __init__(self, line_number, left: Node, op: OperatorNode, right: Node):
         super().__init__(line_number)
         self.display_name = 'bin-op'
@@ -293,7 +295,10 @@ class BinOp(Node):
 
     @property
     def expr_type(self) -> ExprType:
-        return self.left.expr_type
+        if self.op.symbol in self.int_to_bool_ops:
+            return bool_type
+        else:
+            return self.left.expr_type
 
     def __validate_node__(self):
         self.issues = []
@@ -383,6 +388,10 @@ class StringMode(Node):
     @property
     def children(self):
         return [self.length]
+
+    @property
+    def expr_type(self):
+        return string_type
 
 
 class ArrayMode(Node):

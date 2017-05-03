@@ -1,4 +1,7 @@
 do
   for i = 1 to 3;
-    x1[i] = i;
+    print(i);
 od;
+
+dcl s chars[8] = "setembro";
+dcl c char = s[1];

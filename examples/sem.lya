@@ -5,7 +5,7 @@ syn d = true; // "bool"
 //syn d = c;
 
 dcl e int = 1 + 1;
-dcl f int = 1 + 2;
+dcl f int = 1 + 'a';
 //dcl g char = 1 + 1;
 
 dcl b int = e + 1;
@@ -21,3 +21,6 @@ z = 3;
 dcl z int;
 
 z = 4;
+
+dcl a_int int = 1 > 2;
+dcl b_bool bool = 1 > 2;

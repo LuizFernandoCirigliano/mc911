@@ -21,7 +21,7 @@ class ExprType(object):
 int_type = ExprType("int")
 bool_type = ExprType("bool")
 char_type = ExprType("char")
-string_type = ExprType("string")
+string_type = ExprType("string", char_type)
 void_type = ExprType("void")
 int_array_type = ExprType("array", int_type)
 char_array_type = ExprType("array", char_type)
