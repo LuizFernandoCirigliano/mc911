@@ -1,4 +1,5 @@
 from case_ins_dict import CaseInsensitiveDict
+from enum import Enum
 
 
 class ExprType(object):
@@ -6,7 +7,7 @@ class ExprType(object):
         self.type = expr_type
         self.detail = detail
 
-    def __cmp__(self, other):
+    def __eq__(self, other):
         return self.type == other.type and self.detail == other.detail
 
     def __str__(self):
@@ -18,20 +19,52 @@ class ExprType(object):
     def expr_type(self):
         return self
 
-int_type = ExprType("int")
-bool_type = ExprType("bool")
-char_type = ExprType("char")
-string_type = ExprType("string", char_type)
-void_type = ExprType("void")
-int_array_type = ExprType("array", int_type)
-char_array_type = ExprType("array", char_type)
+    @staticmethod
+    def array_of_type(expr_type: object):
+        return ExprType("array", expr_type)
+
+
+class SymbolCategory(Enum):
+    PROCEDURE = 1
+    MODE = 2
+    VARIABLE = 3
+    ACTION = 4
 
 
 class Symbol(object):
-    def __init__(self, name, mode: ExprType, declaration=None):
+    def __init__(self, name, mode: ExprType, category: SymbolCategory):
         self.name = name
-        self.mode = mode
+        self.category = category
+        self.expr_type = mode
+
+    def __eq__(self, other):
+        if self.category != other.category:
+            return False
+        if self.category == SymbolCategory.MODE:
+            return self.expr_type == other.expr_type
+        else:
+            return self.name == other.name
+
+    def __repr__(self):
+        return "{} , name: {}, type: {}".format(self.category, self.name, self.expr_type)
+
+
+class BuiltinSymbol(Symbol):
+    def __init__(self, name, mode: ExprType, category: SymbolCategory):
+        super().__init__(name, mode, category)
+
+
+class VarSymbol(Symbol):
+    def __init__(self, name, mode: ExprType, category: SymbolCategory, declaration=None):
+        super().__init__(name, mode, category)
         self.declaration = declaration
+
+
+int_symbol = BuiltinSymbol("int", ExprType("int"), SymbolCategory.MODE)
+bool_symbol = BuiltinSymbol("bool", ExprType("bool"), SymbolCategory.MODE)
+char_symbol = BuiltinSymbol("char", ExprType("char"), SymbolCategory.MODE)
+string_symbol = BuiltinSymbol("string", ExprType("string", char_symbol.expr_type), SymbolCategory.MODE)
+void_symbol = BuiltinSymbol("void", ExprType("void"), SymbolCategory.MODE)
 
 
 class SymbolTable(CaseInsensitiveDict):
@@ -98,26 +131,32 @@ class Environment(object):
 
 class Context:
     def __init__(self):
-        self.mode_env = self.get_default_mode_env()
-        self.var_env = Environment()
+        self.symbol_env = self.get_default_mode_env()
 
     def reset(self):
-        self.mode_env = self.get_default_mode_env()
-        self.var_env = Environment()
+        self.symbol_env = self.get_default_mode_env()
 
     @staticmethod
     def get_default_mode_env():
         return Environment(CaseInsensitiveDict({
-            "int": int_type,
-            "char": char_type,
-            "string": string_type,
-            "bool": bool_type,
-            "void": void_type,
-            "int_array": int_array_type,
-            "char_array": char_array_type
+            int_symbol.name: int_symbol,
+            char_symbol.name: char_symbol,
+            string_symbol.name: string_symbol,
+            bool_symbol.name: bool_symbol,
+            void_symbol.name: void_symbol,
+            'ABS': BuiltinSymbol('ABS', int_symbol.expr_type, SymbolCategory.PROCEDURE),
+            'ASC': BuiltinSymbol('ASC', int_symbol.expr_type, SymbolCategory.PROCEDURE),
+            'UPPER': BuiltinSymbol('UPPER', int_symbol.expr_type, SymbolCategory.PROCEDURE),
+            'LOWER': BuiltinSymbol('LOWER', int_symbol.expr_type, SymbolCategory.PROCEDURE),
+            'NUM': BuiltinSymbol('NUM', int_symbol.expr_type, SymbolCategory.PROCEDURE),
+            'READ': BuiltinSymbol('READ', string_symbol.expr_type, SymbolCategory.PROCEDURE),
+            'PRINT': BuiltinSymbol('PRINT', void_symbol.expr_type, SymbolCategory.PROCEDURE),
         }))
 
-    def insert_variables(self, var_list, var_mode: ExprType, declaration):
+    def insert_symbol(self, var_list, var_mode: ExprType, category: SymbolCategory, declaration: object):
+        if type(var_mode) != ExprType:
+            raise TypeError(type(var_mode))
+
         if var_list is None:
             return True
 
@@ -132,18 +171,17 @@ class Context:
                 valid_identifiers = False
 
         for identifier in var_list:
-            prev = self.var_env.find(identifier.name)
+            prev = self.symbol_env.find(identifier.name)
             if prev:
-                prev_var = self.var_env.lookup(identifier.name)
-                identifier.issues.append(
-                    VariableRedeclaration(identifier.name,
-                                          prev_var.declaration.line_number)
-                )
+                prev_var = self.symbol_env.lookup(identifier.name)
+                line_number = prev_var.declaration.line_number if prev_var.declaration else None
+
+                identifier.issues.append(VariableRedeclaration(identifier.name, line_number))
                 identifier.__is_valid__ = False
                 valid_identifiers = False
             else:
-                s = Symbol(identifier.name, var_mode, declaration)
-                self.var_env.add_local(identifier.name, s)
+                s = VarSymbol(identifier.name, var_mode, category, declaration)
+                self.symbol_env.add_local(identifier.name, s)
 
         return valid_identifiers
 

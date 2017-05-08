@@ -26,13 +26,13 @@ class Node(object):
 
     @property
     def expr_type(self) -> ExprType:
-        return cur_context.mode_env.lookup('void')
+        return void_symbol.expr_type
 
     @property
     def is_valid(self):
         return self.__is_valid__
 
-    def validate_node(self):
+    def validate_node(self) -> bool:
         self.issues = []
 
         for c in self.children:
@@ -60,53 +60,6 @@ class Node(object):
                 self.display_name,
                 issue.message()
             ))
-
-
-class OperatorNode(Node):
-    def __init__(self, line_number, symbol: str):
-        super().__init__(line_number)
-        self.symbol = symbol
-
-    def __str__(self):
-        return self.symbol
-
-
-class BasicNode(Node):
-    def __init__(self, line_number, value):
-        super().__init__(line_number)
-        self.value = value
-
-    def __str__(self):
-        return str(self.value)
-
-
-class BasicMode(Node):
-    def __init__(self, line_number, node_type):
-        super().__init__(line_number)
-        self.node_type = node_type
-
-    def __str__(self):
-        return str(self.expr_type)
-
-    @property
-    def expr_type(self) -> ExprType:
-        return cur_context.mode_env.lookup(self.node_type)
-
-
-class LiteralNode(Node):
-    def __init__(self, line_number, value, type_name):
-        super().__init__(line_number)
-        self.value = value
-        self.type_name = type_name
-
-    def __str__(self):
-        if self.expr_type.type == 'char':
-            return chr(int(self.value))
-        return str(self.value)
-
-    @property
-    def expr_type(self) -> ExprType:
-        return cur_context.mode_env.lookup(self.type_name)
 
 
 class PassNode(Node):
@@ -138,6 +91,72 @@ class ListNode(Node):
         return True
 
 
+class OperatorNode(Node):
+    def __init__(self, line_number, symbol: str):
+        super().__init__(line_number)
+        self.symbol = symbol
+
+    def __str__(self):
+        return self.symbol
+
+
+class BasicNode(Node):
+    def __init__(self, line_number, value):
+        super().__init__(line_number)
+        self.value = value
+
+    def __str__(self):
+        return str(self.value)
+
+
+class BasicMode(Node):
+    def __init__(self, line_number, node_type: str):
+        super().__init__(line_number)
+        self.node_type = node_type
+
+    def __str__(self):
+        return str(self.expr_type)
+
+    @property
+    def expr_type(self) -> ExprType:
+        return cur_context.symbol_env.lookup(self.node_type).expr_type
+
+
+class LiteralNode(Node):
+    def __init__(self, line_number, value, type_name):
+        super().__init__(line_number)
+        self.value = value
+        self.type_name = type_name
+
+    def __str__(self):
+        if self.expr_type.type == 'char':
+            return chr(int(self.value))
+        return str(self.value)
+
+    @property
+    def expr_type(self) -> ExprType:
+        return cur_context.symbol_env.lookup(self.type_name).expr_type
+
+
+class Spec(Node):
+    def __init__(self, line_number, spec_type, mode, attribute=None):
+        super().__init__(line_number)
+        self.display_name = 'spec'
+        self.spec_type = spec_type
+        self.mode = mode
+        self.attribute = attribute
+
+    @property
+    def children(self):
+        c = [self.mode]
+        if self.attribute:
+            c.append(self.attribute)
+        return c
+
+    def __str__(self):
+        return "{0}-{1}".format(self.display_name, self.spec_type)
+
+
 class Program(Node):
     def __init__(self, line_number, statement_list):
         super().__init__(line_number)
@@ -153,15 +172,15 @@ class IdentifierInitialization(Node):
     def __init__(self, line_number, identifier_list, mode: Node = None, initialization: Node = None):
         super().__init__(line_number)
         self.identifier_list = identifier_list
-        self.mode = mode
+        self.mode_node = mode
         self.initialization = initialization
 
     @property
     def children(self):
         c = list()
         c.append(ListNode(self.identifier_list, 'identifiers'))
-        if self.mode:
-            c.append(self.mode)
+        if self.mode_node:
+            c.append(self.mode_node)
         if self.initialization:
             c.append(self.initialization)
         return c
@@ -169,19 +188,21 @@ class IdentifierInitialization(Node):
     @property
     def labels(self):
         l = ['ids']
-        if self.mode:
+        if self.mode_node:
             l.append('mode')
         if self.initialization:
             l.append('init')
         return l
 
     def __validate_node__(self):
-        mode_node = self.mode or self.initialization
-        valid_identifiers = cur_context.insert_variables(self.identifier_list, mode_node.expr_type, self)
-        valid = self.mode.expr_type == self.initialization.expr_type if (self.initialization and self.mode) else True
+        mode_node = self.mode_node or self.initialization
+        valid_identifiers = cur_context.insert_symbol(self.identifier_list, mode_node.expr_type, SymbolCategory.VARIABLE, self)
+        if not (self.initialization and self.mode_node):
+            return valid_identifiers
+        valid = self.mode_node.expr_type == self.initialization.expr_type
         if not valid:
             self.issues.append(
-                errors.TypeMismatch(self.mode.expr_type, self.initialization.expr_type)
+                errors.TypeMismatch(self.mode_node.expr_type, self.initialization.expr_type)
             )
 
         return valid and valid_identifiers
@@ -295,7 +316,7 @@ class BinOp(Node):
     @property
     def expr_type(self) -> ExprType:
         if self.op.symbol in self.int_to_bool_ops:
-            return bool_type
+            return bool_symbol.expr_type
         else:
             return self.left.expr_type
 
@@ -320,11 +341,15 @@ class ReferenceMode(Node):
     def __init__(self, line_number, mode):
         super().__init__(line_number)
         self.display_name = 'ref-mode'
-        self.mode = mode
+        self.mode_node = mode
 
     @property
     def children(self):
-        return [self.mode]
+        return [self.mode_node]
+
+    @property
+    def expr_type(self):
+        return ExprType("reference", self.mode_node.expr_type)
 
 
 class LiteralRange(Node):
@@ -347,12 +372,17 @@ class DiscreteRangeMode(Node):
     def __init__(self, line_number, mode, literal_range):
         super().__init__(line_number)
         self.display_name = 'discrete-range-mode'
-        self.mode = mode
+        self.mode_node = mode
         self.literal_range = literal_range
 
     @property
     def children(self):
-        return [self.mode, self.literal_range]
+        return [self.mode_node, self.literal_range]
+
+    @property
+    def expr_type(self):
+        #TODO: expr_type discrete range mode
+        return None
 
 
 class Identifier(Node):
@@ -366,12 +396,12 @@ class Identifier(Node):
 
     @property
     def expr_type(self) -> ExprType:
-        var = cur_context.var_env.lookup(self.name)
-        return var.mode if var else cur_context.mode_env.lookup('void')
+        var = cur_context.symbol_env.lookup(self.name) or void_symbol
+        return var.expr_type
 
     def __validate_node__(self):
         self.issues = []
-        symbol = cur_context.var_env.lookup(self.name)
+        symbol = cur_context.symbol_env.lookup(self.name)
         valid = symbol is not None
         if not valid:
             self.issues.append(errors.UndeclaredVariable(self.name))
@@ -390,7 +420,7 @@ class StringMode(Node):
 
     @property
     def expr_type(self):
-        return string_type
+        return string_symbol.expr_type
 
 
 class ArrayMode(Node):
@@ -398,26 +428,26 @@ class ArrayMode(Node):
         super().__init__(line_number)
         self.display_name = 'array-mode'
         self.index_mode_list = index_mode_list
-        self.mode = mode
+        self.mode_node = mode
 
     @property
     def children(self):
         c = list()
         c.append(ListNode(self.index_mode_list, 'index_mode_list'))
-        if self.mode:
-            c.append(self.mode)
+        if self.mode_node:
+            c.append(self.mode_node)
         return c
 
     @property
     def labels(self):
         l = ['']
-        if self.mode:
+        if self.mode_node:
             l.append('mode')
         return l
 
     @property
     def expr_type(self) -> ExprType:
-        return cur_context.mode_env.lookup('{}_array'.format(self.mode))
+        return ExprType("array", self.mode_node.expr_type)
 
 
 class NewModeStatement(Node):
@@ -432,22 +462,23 @@ class NewModeStatement(Node):
 
 
 class ModeDefinition(Node):
-    def __init__(self, line_number, identifier_list, mode):
+    def __init__(self, line_number, identifier_list, mode: Node):
         super().__init__(line_number)
         self.display_name = 'mode-def'
-        self.mode = mode
+        self.mode_node = mode
         self.identifier_list = identifier_list
 
     @property
     def children(self):
-        return [ListNode(self.identifier_list, 'identifiers'), self.mode]
+        return [ListNode(self.identifier_list, 'identifiers'), self.mode_node]
 
     @property
     def labels(self):
         return ['', 'mode']
 
     def validate_node(self):
-        pass
+        cur_context.insert_symbol(self.identifier_list, self.mode_node.expr_type, SymbolCategory.MODE, self)
+        return super().validate_node()
 
 
 class FormalParameter(Node):
@@ -464,7 +495,7 @@ class FormalParameter(Node):
 
 class ProcedureDefinition(Node):
     def __init__(self, line_number, statement_list=None,
-                 formal_parameter_list: List[FormalParameter]=None, result_spec=None):
+                 formal_parameter_list: List[FormalParameter]=None, result_spec: Spec=None):
         super().__init__(line_number)
         self.display_name = 'proc-def'
         self.statement_list = statement_list
@@ -491,45 +522,29 @@ class ProcedureStatement(Node):
         self.procedure_definition = procedure_definition
 
         result = self.procedure_definition.result_spec
-        self.mode = result.mode if result else cur_context.mode_env.lookup('void')
+        self.mode = result.mode if result else void_symbol
 
     @property
     def children(self):
         return [self.label_id, self.procedure_definition]
 
-    def validate_node(self):
-        cur_context.insert_variables([self.label_id], self.mode, self)
-        cur_context.var_env.push(self)
+    def validate_node(self) -> bool:
+        cur_context.insert_symbol([self.label_id], self.mode.expr_type, SymbolCategory.PROCEDURE, self)
+        cur_context.symbol_env.push(self)
 
         formal_params = self.procedure_definition.formal_parameter_list
         if formal_params:
             for param in formal_params:
-                cur_context.insert_variables(param.identifier_list, param.parameter_spec.mode.expr_type, self)
+                cur_context.insert_symbol(param.identifier_list,
+                                          param.parameter_spec.mode.expr_type,
+                                          SymbolCategory.VARIABLE,
+                                          self)
 
         valid = super().validate_node()
 
-        cur_context.var_env.pop()
+        cur_context.symbol_env.pop()
 
         return valid
-
-
-class Spec(Node):
-    def __init__(self, line_number, spec_type, mode, attribute=None):
-        super().__init__(line_number)
-        self.display_name = 'spec'
-        self.spec_type = spec_type
-        self.mode = mode
-        self.attribute = attribute
-
-    @property
-    def children(self):
-        c = [self.mode]
-        if self.attribute:
-            c.append(self.attribute)
-        return c
-
-    def __str__(self):
-        return "{0}-{1}".format(self.display_name, self.spec_type)
 
 
 class ReferenceLocation(Node):
@@ -541,6 +556,10 @@ class ReferenceLocation(Node):
     @property
     def children(self):
         return [self.location]
+
+    @property
+    def expr_type(self):
+        return ExprType("reference", self.location.expr_type)
 
 
 class DereferenceLocation(Node):
@@ -585,11 +604,11 @@ class StringElement(Node):
 
     @property
     def expr_type(self) -> ExprType:
-        return cur_context.mode_env.lookup('char')
+        return char_symbol.expr_type
 
 
 class ArrayElement(Node):
-    def __init__(self, line_number, location, exp_list):
+    def __init__(self, line_number, location, exp_list: list):
         super().__init__(line_number)
         self.display_name = 'array-element'
         self.location = location
@@ -605,7 +624,9 @@ class ArrayElement(Node):
 
     @property
     def expr_type(self) -> ExprType:
-        return self.location.expr_type.detail
+        my_array_type = self.location.expr_type
+        # Se tiver mais de um elemento, retorna outro array
+        return my_array_type.detail if len(self.exp_list) == 1 else my_array_type
 
 
 class ElsIf(Node):
@@ -618,6 +639,10 @@ class ElsIf(Node):
     @property
     def children(self):
         return [self.condition, self.action]
+
+    @property
+    def expr_type(self):
+        return self.action.expr_type
 
 
 class ConditionalExpression(Node):
@@ -672,6 +697,11 @@ class ActionStatement(Node):
             c.append(self.label_id)
         return c
 
+    def validate_node(self):
+        if self.label_id:
+            cur_context.insert_symbol([self.label_id], self.action.expr_type, SymbolCategory.ACTION, self)
+        return super().validate_node()
+
 
 class AssignmentAction(Node):
     def __init__(self, line_number, location, operator, expression):
@@ -721,6 +751,10 @@ class ReturnAction(Node):
     def children(self):
         return [self.expression] if self.expression else []
 
+    @property
+    def expr_type(self):
+        return self.expression.expr_type
+
 
 class FuncCallBase(Node):
     def __init__(self, line_number, identifier: Identifier, exp_list=None):
@@ -743,8 +777,8 @@ class FuncCallBase(Node):
 
     @property
     def expr_type(self) -> ExprType:
-        symbol = cur_context.var_env.lookup(self.identifier.name)
-        return symbol.mode.expr_type if (symbol and symbol.mode) else cur_context.mode_env.lookup('void')
+        symbol = cur_context.symbol_env.lookup(self.identifier.name) or void_symbol
+        return symbol.expr_type
 
 
 class BuiltinCall(FuncCallBase):
@@ -754,24 +788,13 @@ class BuiltinCall(FuncCallBase):
 
 
 class BuiltinName(Node):
-    # TODO Verify Functions
-    ret_types = CaseInsensitiveDict({
-        'ABS': cur_context.mode_env.lookup('int'),
-        'ASC': cur_context.mode_env.lookup('int'),
-        'UPPER': cur_context.mode_env.lookup('string'),
-        'LOWER': cur_context.mode_env.lookup('string'),
-        'NUM': cur_context.mode_env.lookup('int'),
-        'READ': cur_context.mode_env.lookup('string'),
-        'PRINT': cur_context.mode_env.lookup('void')
-    })
-
     def __init__(self, line_number, name):
         super().__init__(line_number)
         self.name = name
 
     @property
     def expr_type(self) -> ExprType:
-        return self.ret_types[self.name]
+        return cur_context.symbol_env.lookup(self.name).expr_type
 
     def __str__(self):
         return str(self.name)
@@ -808,10 +831,8 @@ class StepEnumeration(Node):
         return e
 
     def validate_node(self):
-        cur_context.insert_variables([self.identifier], int_type, self)
-
-        valid = super().validate_node()
-        return valid
+        cur_context.insert_symbol([self.identifier], int_symbol.expr_type, SymbolCategory.VARIABLE, self)
+        return super().validate_node()
 
 
 class RangeEnum(Node):
@@ -826,10 +847,9 @@ class RangeEnum(Node):
     def children(self):
         return [self.identifier, self.discrete_mode]
 
-    def validate_node(self):
-        cur_context.insert_variables([self.identifier], int_type, self)
-        valid = super().validate_node()
-        return valid
+    def validate_node(self) -> bool:
+        cur_context.insert_symbol([self.identifier], int_symbol.expr_type, SymbolCategory.VARIABLE, self)
+        return super().validate_node()
 
 
 class ControlPart(Node):
@@ -874,10 +894,10 @@ class DoAction(Node):
             c.append(ListNode(self.action_st_list))
         return c
 
-    def validate_node(self):
-        cur_context.var_env.push(self)
+    def validate_node(self) -> bool:
+        cur_context.symbol_env.push(self)
         valid = super().validate_node()
-        cur_context.var_env.pop()
+        cur_context.symbol_env.pop()
         return valid
 
 

@@ -6,8 +6,8 @@ end;
 p1();
 
 
-//type vector = array [1:3] int;
-dcl x1 array [1:3] int;
+type vector = array [1:3] int;
+dcl x1 vector;
 do
   for i = 1 to 3;
     x1[i] = i;
@@ -23,8 +23,8 @@ dcl y1 int = p1();
 print(y1, p2());
 
 
-//type vector = array [1:3] int;
-dcl v array [1:3] int;
+type vector = array [1:3] int;
+dcl v vector;
 do
   for i in int(1:3);
     v[i] = i;
@@ -40,10 +40,10 @@ else
 fi;
 
 
-//type ptr = ref int;
-dcl x, y int, p ref int = ->x;
+type ptr = ref int;
+dcl x, y int, p ptr = ->x;
 q: proc () returns (int loc);
-  dcl z ref int;
+  dcl z ptr;
   z = ->y;
   return z->;
 end;

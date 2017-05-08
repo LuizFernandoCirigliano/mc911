@@ -1,5 +1,7 @@
-/* Display all prime numbers between two given
-  intervals (greater than 2): */
+/* Display all prime numbers between two given intervals (greater than 2): */
+/* Display all prime numbers between two given intervals (greater than 2): */
+/* Display all prime numbers between two given intervals (greater than 2): */
+/* Display all prime numbers between two given intervals (greater than 2): */
 
 dcl n1, n2, i, j int, flag bool;
 
