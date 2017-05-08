@@ -9,3 +9,8 @@ print(x,c,y,d,f,e);
 
 dcl s chars[20] = "asc6759ij\n";
 print(s);
+
+p1:proc ();
+  dcl x int = 3;
+  return x;
+end;

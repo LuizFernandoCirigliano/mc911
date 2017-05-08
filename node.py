@@ -123,7 +123,7 @@ class BasicMode(Node):
 
 
 class LiteralNode(Node):
-    def __init__(self, line_number, value, type_name):
+    def __init__(self, line_number, value, type_name: str):
         super().__init__(line_number)
         self.value = value
         self.type_name = type_name
@@ -139,22 +139,26 @@ class LiteralNode(Node):
 
 
 class Spec(Node):
-    def __init__(self, line_number, spec_type, mode, attribute=None):
+    def __init__(self, line_number, spec_type, mode: Node, attribute=None):
         super().__init__(line_number)
         self.display_name = 'spec'
         self.spec_type = spec_type
-        self.mode = mode
+        self.mode_node = mode
         self.attribute = attribute
 
     @property
     def children(self):
-        c = [self.mode]
+        c = [self.mode_node]
         if self.attribute:
             c.append(self.attribute)
         return c
 
     def __str__(self):
         return "{0}-{1}".format(self.display_name, self.spec_type)
+
+    @property
+    def expr_type(self):
+        return self.mode_node.expr_type
 
 
 class Program(Node):
@@ -169,7 +173,7 @@ class Program(Node):
 
 
 class IdentifierInitialization(Node):
-    def __init__(self, line_number, identifier_list, mode: Node = None, initialization: Node = None):
+    def __init__(self, line_number, identifier_list: list, mode: Node = None, initialization: Node = None):
         super().__init__(line_number)
         self.identifier_list = identifier_list
         self.mode_node = mode
@@ -494,8 +498,11 @@ class FormalParameter(Node):
 
 
 class ProcedureDefinition(Node):
-    def __init__(self, line_number, statement_list=None,
-                 formal_parameter_list: List[FormalParameter]=None, result_spec: Spec=None):
+    def __init__(self,
+                 line_number,
+                 statement_list=None,
+                 formal_parameter_list: List[FormalParameter]=None,
+                 result_spec: Spec=None):
         super().__init__(line_number)
         self.display_name = 'proc-def'
         self.statement_list = statement_list
@@ -513,6 +520,21 @@ class ProcedureDefinition(Node):
             c.append(self.result_spec)
         return c
 
+    def __validate_node__(self):
+        result_mode_node = self.result_spec or void_symbol
+        result_expr_type = result_mode_node.expr_type
+
+        valid = True
+        for statement in self.statement_list:
+            if type(statement) == ActionStatement and type(statement.action) == ReturnAction:
+                ret_action = statement.action
+                if ret_action.expr_type != result_expr_type:
+                    ret_action.issues.append(
+                        errors.TypeMismatch(result_expr_type, ret_action.expr_type)
+                    )
+                    valid = False
+        return valid
+
 
 class ProcedureStatement(Node):
     def __init__(self, line_number, label_id: Identifier, procedure_definition: ProcedureDefinition):
@@ -522,7 +544,7 @@ class ProcedureStatement(Node):
         self.procedure_definition = procedure_definition
 
         result = self.procedure_definition.result_spec
-        self.mode = result.mode if result else void_symbol
+        self.mode = result.mode_node if result else void_symbol
 
     @property
     def children(self):
@@ -536,7 +558,7 @@ class ProcedureStatement(Node):
         if formal_params:
             for param in formal_params:
                 cur_context.insert_symbol(param.identifier_list,
-                                          param.parameter_spec.mode.expr_type,
+                                          param.parameter_spec.mode_node.expr_type,
                                           SymbolCategory.VARIABLE,
                                           self)
 
@@ -684,7 +706,7 @@ class ConditionalExpression(Node):
 
 
 class ActionStatement(Node):
-    def __init__(self, line_number, action, label_id=None):
+    def __init__(self, line_number, action: Node, label_id: str =None):
         super().__init__(line_number)
         self.display_name = 'action-sttmnt'
         self.action = action
@@ -692,7 +714,8 @@ class ActionStatement(Node):
 
     @property
     def children(self):
-        c = [self.action]
+        c = list()
+        c.append(self.action)
         if self.label_id:
             c.append(self.label_id)
         return c
