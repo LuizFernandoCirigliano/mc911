@@ -200,7 +200,10 @@ class IdentifierInitialization(Node):
 
     def __validate_node__(self):
         mode_node = self.mode_node or self.initialization
-        valid_identifiers = cur_context.insert_symbol(self.identifier_list, mode_node.expr_type, SymbolCategory.VARIABLE, self)
+        valid_identifiers = cur_context.insert_symbol(self.identifier_list,
+                                                      mode_node.expr_type,
+                                                      SymbolCategory.VARIABLE,
+                                                      self)
         if not (self.initialization and self.mode_node):
             return valid_identifiers
         valid = self.mode_node.expr_type == self.initialization.expr_type
@@ -385,8 +388,7 @@ class DiscreteRangeMode(Node):
 
     @property
     def expr_type(self):
-        #TODO: expr_type discrete range mode
-        return None
+        return ExprType("discrete range", self.mode_node.expr_type)
 
 
 class Identifier(Node):
@@ -428,7 +430,7 @@ class StringMode(Node):
 
 
 class ArrayMode(Node):
-    def __init__(self, line_number, index_mode_list, mode: Node=None):
+    def __init__(self, line_number, index_mode_list: list, mode: Node=None):
         super().__init__(line_number)
         self.display_name = 'array-mode'
         self.index_mode_list = index_mode_list
@@ -526,6 +528,7 @@ class ProcedureDefinition(Node):
 
         valid = True
         for statement in self.statement_list:
+            # Check return action against expected return type
             if type(statement) == ActionStatement and type(statement.action) == ReturnAction:
                 ret_action = statement.action
                 if ret_action.expr_type != result_expr_type:
@@ -561,7 +564,6 @@ class ProcedureStatement(Node):
                                           param.parameter_spec.mode_node.expr_type,
                                           SymbolCategory.VARIABLE,
                                           self)
-
         valid = super().validate_node()
 
         cur_context.symbol_env.pop()
@@ -593,6 +595,10 @@ class DereferenceLocation(Node):
     @property
     def children(self):
         return [self.location]
+
+    @property
+    def expr_type(self):
+        return self.location.expr_type.detail
 
 
 class Slice(Node):
