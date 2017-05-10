@@ -16,7 +16,7 @@ Para executar o script em python para compilar um programa na lingua LYA, eis o 
 
 ```sh
 $ python3 run.py <nome do arquivo>
-```s
+```
 
 Exemplo:
 
