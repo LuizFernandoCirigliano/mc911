@@ -488,7 +488,7 @@ class ModeDefinition(Node):
 
 
 class FormalParameter(Node):
-    def __init__(self, line_number, id_list, parameter_spec):
+    def __init__(self, line_number, id_list, parameter_spec: Spec):
         super().__init__(line_number)
         self.display_name = 'formal-param'
         self.parameter_spec = parameter_spec
@@ -497,6 +497,10 @@ class FormalParameter(Node):
     @property
     def children(self):
         return [ListNode(self.identifier_list, 'id_list'), self.parameter_spec]
+
+    @property
+    def expr_type(self):
+        return self.parameter_spec.mode_node.expr_type
 
 
 class ProcedureDefinition(Node):
@@ -561,7 +565,7 @@ class ProcedureStatement(Node):
         if formal_params:
             for param in formal_params:
                 cur_context.insert_symbol(param.identifier_list,
-                                          param.parameter_spec.mode_node.expr_type,
+                                          param.expr_type,
                                           SymbolCategory.VARIABLE,
                                           self)
         valid = super().validate_node()
