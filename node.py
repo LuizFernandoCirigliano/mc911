@@ -280,6 +280,11 @@ class UnOp(Node):
         'int': ['-']
     })
 
+    op_to_instr = {
+        '!': [LVM.NotOperator()],
+        '-': [LVM.NegateOperator()]
+    }
+
     def __init__(self, line_number, operator: OperatorNode, operand: Node):
         super().__init__(line_number)
         self.display_name = 'un-op'
@@ -303,6 +308,9 @@ class UnOp(Node):
             )
         return valid
 
+    def lvm_operators(self):
+        return self.op_to_instr[self.operator.symbol]
+
 
 class BinOp(Node):
     valid_operators = CaseInsensitiveDict({
@@ -315,11 +323,16 @@ class BinOp(Node):
 
     op_to_instr = {
         '+': [LVM.AddOperator()],
+        '-': [LVM.SubOperator()],
+        '*': [LVM.MulOperator()],
+        '/': [LVM.DivOperator()],
+        '%': [LVM.ModOperator()],
         '&&': [LVM.LogicalAndOperator()],
         '||': [LVM.LogicalOrOperator()],
         '<': [LVM.LessOperator()],
         '==': [LVM.EqualOperator()],
-        '>': [LVM.LessOperator(), LVM.NotOperator()]
+        '>=': [LVM.LessOperator(),  LVM.NotOperator()],
+        '!=': [LVM.NotEqualOperator()]
     }
 
     def __init__(self, line_number, left: Node, op: OperatorNode, right: Node):

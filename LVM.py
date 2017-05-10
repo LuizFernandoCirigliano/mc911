@@ -102,17 +102,15 @@ class NotEqualOperator(BinOPOperator):
     op_name = 'neq'
     operator = operator.ne
 
+class ModOperator(BinOPOperator):
+    op_name = 'mod'
+    operator = operator.mod
 
 class UnOPOperator(LVMOperator):
     operator = None
 
     def execute(self, lvm):
         lvm.M[lvm.sp] = self.operator(lvm.M[lvm.sp])
-
-
-class ModOperator(UnOPOperator):
-    op_name = 'mod'
-    operator = operator.mod
 
 
 class NegateOperator(UnOPOperator):
