@@ -1,2 +1,2 @@
 dcl z bool = true && false;
-dcl x int = 1 + 1;
+dcl x bool = 3 > 2;

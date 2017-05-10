@@ -314,11 +314,11 @@ class BinOp(Node):
     int_to_bool_ops = ['==', '!=', '>', '>=', '<', '>=', '<', '<=']
 
     op_to_instr = {
-        '+': LVM.AddOperator(),
-        '&&': LVM.LogicalAndOperator(),
-        '||': LVM.LogicalOrOperator(),
-        '<': LVM.LessOperator(),
-        '==': LVM.EqualOperator(),
+        '+': [LVM.AddOperator()],
+        '&&': [LVM.LogicalAndOperator()],
+        '||': [LVM.LogicalOrOperator()],
+        '<': [LVM.LessOperator()],
+        '==': [LVM.EqualOperator()],
         '>': [LVM.LessOperator(), LVM.NotOperator()]
     }
 
@@ -360,7 +360,7 @@ class BinOp(Node):
         return valid_operator
 
     def lvm_operators(self):
-        return [self.op_to_instr[self.op.symbol]]
+        return self.op_to_instr[self.op.symbol]
 
 
 class ReferenceMode(Node):
