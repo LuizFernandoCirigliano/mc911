@@ -12,6 +12,7 @@ João Guilherme Daros Fidelis    RA  136242
 
 ### Execução
 
+##### OBS: Python3.5+ necessário
 Para executar o script em python para compilar um programa na lingua LYA, eis o comando:
 
 ```sh
@@ -29,8 +30,14 @@ $ python3 run.py examples/arm.lya
 Após executar o script em run.py, na mesma pasta do arquivo será gerado um arquivo .ast.html de mesmo nome na pasta do arquvio utilizado como entrada.
 No exemplo acima, geraria dentro da pasta examples, um arquivo chamado "arm.lya.ast.html". Basta abrir esse arquivo. Um exemplo de como abrir o arquivo html gerado:
 
+#### Linux:
 ```sh
 $ xdg-open examples/arm.lya.ast.html
+```
+
+#### Mac:
+```sh
+$ open examples/arm.lya.ast.html
 ```
 
 Essa AST terá os nós azuis aqueles que não tem erro nenhum e em vermelho aqueles errados ou que contém algum erro semântico.
