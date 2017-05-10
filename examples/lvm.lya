@@ -1,0 +1,2 @@
+dcl z bool = true && false;
+dcl x int = 1 + 1;

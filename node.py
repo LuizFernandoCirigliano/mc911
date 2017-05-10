@@ -1,7 +1,7 @@
 from environments import *
 import errors
 from typing import List
-
+import LVM
 
 class Node(object):
     def __init__(self, line_number):
@@ -51,6 +51,9 @@ class Node(object):
 
     def __validate_node__(self):
         return True
+
+    def lvm_operators(self) -> List[LVM.LVMOperator]:
+        return []
 
     def print_error(self):
         for issue in self.issues:
@@ -136,6 +139,10 @@ class LiteralNode(Node):
     @property
     def expr_type(self) -> ExprType:
         return cur_context.symbol_env.lookup(self.type_name).expr_type
+
+    #TODO checar para string
+    def lvm_operators(self):
+        return [LVM.LoadConstantOperator(self.value)]
 
 
 class Spec(Node):
@@ -300,11 +307,16 @@ class UnOp(Node):
 class BinOp(Node):
     valid_operators = CaseInsensitiveDict({
         'int': ['+', '-', '*', '/', '%', '==', '!=', '>', '>=', '<', '>=', '<', '<='],
-        'bool': ['==', '!='],
+        'bool': ['==', '!=', '&&', '||'],
         'string': ['==', '!=', '+']
     })
 
     int_to_bool_ops = ['==', '!=', '>', '>=', '<', '>=', '<', '<=']
+
+    op_to_instr = {
+        '+': LVM.AddOperator(),
+        '&&': LVM.LogicalAndOperator()
+    }
 
     def __init__(self, line_number, left: Node, op: OperatorNode, right: Node):
         super().__init__(line_number)
@@ -342,6 +354,9 @@ class BinOp(Node):
               errors.InvalidOperator(self.op.symbol, self.left.expr_type)
             )
         return valid_operator
+
+    def lvm_operators(self):
+        return [self.op_to_instr[self.op.symbol]]
 
 
 class ReferenceMode(Node):

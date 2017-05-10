@@ -1,6 +1,7 @@
 from lyaparser import PeterParser
 from visualization import make_html
-from visitors import semantic_visitor
+from visitors import semantic_visitor, lvm_visitor
+from LVM import LVM
 import sys
 
 if __name__ == '__main__':
@@ -11,9 +12,19 @@ if __name__ == '__main__':
     # Build the parser
     pp = PeterParser()
     AST = pp.parse(data)
-    AST.validate_node()
-    semantic_visitor.visit_tree(AST)
+    if AST:
+        AST.validate_node()
+        semantic_visitor.visit_tree(AST)
 
-    html = make_html(AST)
-    with open("{}.ast.html".format(file_name), 'w') as html_file:
-        html_file.write(html)
+        if AST.is_valid:
+            lvm_visitor.visit_tree(AST)
+            print(lvm_visitor.result)
+
+            lvm = LVM()
+            for op in lvm_visitor.result:
+                op.execute(lvm)
+            print(lvm.stack())
+
+        html = make_html(AST)
+        with open("{}.ast.html".format(file_name), 'w') as html_file:
+            html_file.write(html)

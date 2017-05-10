@@ -67,6 +67,9 @@ def make_js(nodes, edges):
                 direction: \"UD\",\n\
                 sortMethod: \"directed\"\n\
             }\n\
+        },\n\
+        physics: {\n\
+            enabled: false\n\
         }\n\
     };\n\
     var network = new vis.Network(container, data, options);\n"

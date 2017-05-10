@@ -34,4 +34,19 @@ class VisualizationVisitor(GenericVisitor):
     pass
 
 
+class LVMVisitor(GenericVisitor):
+    @staticmethod
+    def f(node: Node):
+        return node.lvm_operators()
+
+    def __visit__(self, root: Node):
+        for c in root.children:
+            self.__visit__(c)
+
+        local_result = self.f(root)
+        if local_result:
+            self.result += local_result
+
+
 semantic_visitor = PrintErrorVisitor()
+lvm_visitor = LVMVisitor()
