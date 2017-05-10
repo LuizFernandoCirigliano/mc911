@@ -82,6 +82,25 @@ class LogicalAndOperator(BinOPOperator):
     op_name = 'and'
     operator = operator.and_
 
+class LogicalOrOperator(BinOPOperator):
+    op_name = 'or'
+    operator = operator.or_
+
+class LessOperator(BinOPOperator):
+    op_name = 'les'
+    operator = operator.lt
+
+class EqualOperator(BinOPOperator):
+    op_name = 'equ'
+    operator = operator.eq
+
+class NotEqualOperator(BinOPOperator):
+    op_name = 'neq'
+    operator = operator.ne
+
+class LessOperator(BinOPOperator):
+    op_name = 'les'
+    operator = operator.lt
 
 class UnOPOperator(LVMOperator):
     operator = None
@@ -103,3 +122,7 @@ class NegateOperator(UnOPOperator):
 class AbsoluteOperator(UnOPOperator):
     op_name = 'abs'
     operator = operator.abs
+
+class NotOperator(UnOPOperator):
+    op_name = 'not'
+    operator = operator.not_

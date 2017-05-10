@@ -315,7 +315,11 @@ class BinOp(Node):
 
     op_to_instr = {
         '+': LVM.AddOperator(),
-        '&&': LVM.LogicalAndOperator()
+        '&&': LVM.LogicalAndOperator(),
+        '||': LVM.LogicalOrOperator(),
+        '<': LVM.LessOperator(),
+        '==': LVM.EqualOperator(),
+        '>': [LVM.LessOperator(), LVM.NotOperator()]
     }
 
     def __init__(self, line_number, left: Node, op: OperatorNode, right: Node):
