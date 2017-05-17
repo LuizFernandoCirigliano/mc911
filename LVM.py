@@ -2,11 +2,12 @@ import operator
 
 
 class LVM:
-    def __init__(self):
+    def __init__(self, operator_list):
         self.sp = -1
         self.M = [None] * 100
-        self.D = []
-        self.P = []
+        self.bp = 0
+        self.D = [None] * 100
+        self.P = operator_list
         self.H = []
 
     def top_of_stack(self):
@@ -14,6 +15,12 @@ class LVM:
 
     def stack(self):
         return self.M[:self.sp+1]
+
+    def run(self):
+        pc = 0
+        while pc < len(self.P):
+            self.P[pc].execute(lvm=self)
+            pc += 1
 
 
 class LVMOperator:
@@ -42,12 +49,58 @@ class LVMOperator:
         pass
 
 
+class StartOperator(LVMOperator):
+    op_name = 'stp'
+
+    def execute(self, lvm):
+        lvm.sp = -1
+        lvm.D[0] = 0
+
+
 class LoadConstantOperator(LVMOperator):
     op_name = 'ldc'
 
     def execute(self, lvm):
         lvm.sp += 1
         lvm.M[lvm.sp] = self.op1
+
+
+class LoadValueOperator(LVMOperator):
+    op_name = 'ldv'
+
+    def execute(self, lvm):
+        lvm.sp += 1
+        lvm.M[lvm.sp] = lvm.M[lvm.D[self.op1] + self.op2]
+
+
+class LoadReferenceOperator(LVMOperator):
+    op_name = 'ldr'
+
+    def execute(self, lvm):
+        lvm.sp += 1
+        lvm.M[lvm.sp] = lvm.D[self.op1] + self.op2
+
+
+class StoreValueOperator(LVMOperator):
+    op_name = 'stv'
+
+    def execute(self, lvm):
+        lvm.M[lvm.D[self.op1] + self.op2] = lvm.M[lvm.sp]
+        lvm.sp -= 1
+
+
+class AllocateOperator(LVMOperator):
+    op_name = 'alc'
+
+    def execute(self, lvm):
+        lvm.sp += self.op1
+
+
+class DeallocateOperator(LVMOperator):
+    op_name = 'dlc'
+
+    def execute(self, lvm):
+        lvm.sp -= self.op1
 
 
 class BinOPOperator(LVMOperator):
@@ -93,6 +146,21 @@ class LessOperator(BinOPOperator):
     operator = operator.lt
 
 
+class LessOrEqualOperator(BinOPOperator):
+    op_name = 'leq'
+    operator = operator.le
+
+
+class GreaterOperator(BinOPOperator):
+    op_name = 'grt'
+    operator = operator.gt
+
+
+class GreaterOrEqualOperator(BinOPOperator):
+    op_name = 'gte'
+    operator = operator.ge
+
+
 class EqualOperator(BinOPOperator):
     op_name = 'equ'
     operator = operator.eq
@@ -102,9 +170,11 @@ class NotEqualOperator(BinOPOperator):
     op_name = 'neq'
     operator = operator.ne
 
+
 class ModOperator(BinOPOperator):
     op_name = 'mod'
     operator = operator.mod
+
 
 class UnOPOperator(LVMOperator):
     operator = None
@@ -201,6 +271,13 @@ class StoreStringConstantOperator(LVMOperator):
             lvm.M[adr] = c
         lvm.sp -= 1
 
+class ReadValueOperator(LVMOperator):
+    op_name = 'rdv'
+
+    def execute(self, lvm):
+        lvm.sp += 1
+        lvm.M[lvm.sp] = input()
+
 class ReadStringOperator(LVMOperator):
     op_name="rds"
 
@@ -256,3 +333,5 @@ class NoOperationOperator(LVMOperator):
 
 class StopProgramOperator(LVMOperator):
     op_name="end"
+
+

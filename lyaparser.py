@@ -567,13 +567,13 @@ class PeterParser(object):
 
     def p_builtin_name(self, p):
         """builtin_name : ABS
-                                  | ASC
-                                  | NUM
-                                  | UPPER
-                                  | LOWER
-                                  | LENGTH
-                                  | READ
-                                  | PRINT"""
+                        | ASC
+                        | NUM
+                        | UPPER
+                        | LOWER
+                        | LENGTH
+                        | READ
+                        | PRINT"""
         p[0] = node.BuiltinName(p.lexer.lineno, p[1])
 
     def p_label_id(self, p):

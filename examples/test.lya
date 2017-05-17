@@ -10,3 +10,5 @@ q: proc () returns (int loc);
   z = ->y;
   return z->;
 end;
+
+x();

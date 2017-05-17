@@ -32,10 +32,12 @@ class SymbolCategory(Enum):
 
 
 class Symbol(object):
-    def __init__(self, name, mode: ExprType, category: SymbolCategory):
+    def __init__(self, name, mode: ExprType, category: SymbolCategory, stack_level: int=None, stack_offset: int=None):
         self.name = name
         self.category = category
         self.expr_type = mode
+        self.stack_level = stack_level
+        self.stack_offset = stack_offset
 
     def __eq__(self, other):
         if self.category != other.category:
@@ -76,9 +78,14 @@ class SymbolTable(CaseInsensitiveDict):
     def __init__(self, decl=None):
         super().__init__()
         self.decl = decl
+        self.var_count = 0
 
-    def add(self, name, value):
+    def add(self, name: str, value: Symbol):
+        if name in self:
+            print("WARNING reassigning symbol")
         self[name] = value
+        if value.category == SymbolCategory.VARIABLE:
+            self.var_count += 1
 
     def lookup(self, name):
         return self.get(name, None)
@@ -109,8 +116,10 @@ class Environment(object):
     def scope_level(self):
         return len(self.stack)
 
-    def add_local(self, name, value):
-        self.peek().add(name, value)
+    def add_local(self, name, symbol: Symbol):
+        symbol.stack_offset = self.peek().var_count
+        symbol.stack_level = self.scope_level() - 1
+        self.peek().add(name, symbol)
 
     def add_root(self, name, value):
         self.root.add(name, value)
@@ -149,7 +158,7 @@ class Context:
             'UPPER': BuiltinSymbol('UPPER', int_symbol.expr_type, SymbolCategory.PROCEDURE),
             'LOWER': BuiltinSymbol('LOWER', int_symbol.expr_type, SymbolCategory.PROCEDURE),
             'NUM': BuiltinSymbol('NUM', int_symbol.expr_type, SymbolCategory.PROCEDURE),
-            'READ': BuiltinSymbol('READ', string_symbol.expr_type, SymbolCategory.PROCEDURE),
+            'READ': BuiltinSymbol('READ', void_symbol.expr_type, SymbolCategory.PROCEDURE),
             'PRINT': BuiltinSymbol('PRINT', void_symbol.expr_type, SymbolCategory.PROCEDURE),
         }))
 
