@@ -203,4 +203,11 @@ class ReadValueOperator(LVMOperator):
 
     def execute(self, lvm):
         lvm.sp += 1
-        lvm.M[lvm.sp] = input()
+        val = input()
+        if val == "TRUE" or val == "FALSE":
+            val = int(val == "TRUE")
+        try:
+            val = int(val)
+        except ValueError:
+            pass
+        lvm.M[lvm.sp] = val
