@@ -14,7 +14,7 @@ class LVM:
         return self.M[self.sp]
 
     def stack(self):
-        return self.M[:self.sp+1]
+        return self.M[:self.sp + 1]
 
     def run(self):
         pc = 0
@@ -199,16 +199,16 @@ class NotOperator(UnOPOperator):
 
 
 class CallFunctionOperator(LVMOperator):
-    op_name="cfu"
+    op_name = "cfu"
 
     def execute(self, lvm):
         lvm.sp += 1
-        lvm.M[lvm.sp] =lvm.pc+1
+        lvm.M[lvm.sp] = lvm.pc + 1
         lvm.pc = self.op1
 
 
 class EnterFunctionOperator(LVMOperator):
-    op_name="enf"
+    op_name = "enf"
 
     def execute(self, lvm):
         lvm.sp += 1
@@ -217,7 +217,7 @@ class EnterFunctionOperator(LVMOperator):
 
 
 class ReturnFromFunctionOperator(LVMOperator):
-    op_name="ret"
+    op_name = "ret"
 
     def execute(self, lvm):
         lvm.D[self.op1] = lvm.M[lvm.sp]
@@ -234,19 +234,19 @@ class IndexOperator(LVMOperator):
 
 
 class GetReferenceContentsOperator(LVMOperator):
-    op_name="grc"
+    op_name = "grc"
 
     def execute(self, lvm):
         lvm.M[lvm.sp] = lvm.M[lvm.M[lvm.sp]]
 
 
 class LoadMultipleValuesOperator(LVMOperator):
-    op_name="lmv"
+    op_name = "lmv"
 
     def execute(self, lvm):
         t = lvm.M[lvm.sp]
         k = self.op1
-        lvm.M[lvm.sp : lvm.sp + k]=lvm.M[ t : t + k]
+        lvm.M[lvm.sp: lvm.sp + k] = lvm.M[t: t + k]
 
 
 class StoreMultipleValuesOperator(LVMOperator):
@@ -255,22 +255,22 @@ class StoreMultipleValuesOperator(LVMOperator):
     def execute(self, lvm):
         k = self.op1
         t = lvm.M[lvm.sp - k]
-        lvm.M[t : t + k] =lvm.M[lvm.sp - k + 1 : lvm.sp + 1]
-        lvm.sp -= k+1
+        lvm.M[t: t + k] = lvm.M[lvm.sp - k + 1: lvm.sp + 1]
+        lvm.sp -= k + 1
 
 
 class StoreMultipleReferencesOperator(LVMOperator):
-    op_name="smr"
+    op_name = "smr"
 
     def execute(self, lvm):
         t1 = lvm.M[lvm.sp - 1]
         t2 = lvm.M[lvm.sp]
-        lvm.M[t1 : t1 + self.op1] = lvm.M[t2 : t2 + self.op1]
+        lvm.M[t1: t1 + self.op1] = lvm.M[t2: t2 + self.op1]
         lvm.sp -= 1
 
 
 class StoreStringConstantOperator(LVMOperator):
-    op_name="sts"
+    op_name = "sts"
 
     def execute(self, lvm):
         adr = lvm.M[lvm.sp]
@@ -297,7 +297,7 @@ class ReadValueOperator(LVMOperator):
 
 
 class ReadStringOperator(LVMOperator):
-    op_name="rds"
+    op_name = "rds"
 
     def execute(self, lvm):
         string = input()
@@ -310,7 +310,7 @@ class ReadStringOperator(LVMOperator):
 
 
 class PrintValueOperator(LVMOperator):
-    op_name="prv"
+    op_name = "prv"
 
     def execute(self, lvm):
         if self.op1:
@@ -321,23 +321,23 @@ class PrintValueOperator(LVMOperator):
 
 
 class PrintMultipleValuesOperator(LVMOperator):
-    op_name="prt"
+    op_name = "prt"
 
     def execute(self, lvm):
         for k in range(self.op1):
             print(lvm.M[lvm.sp - k + 1])
-        lvm.sp -= k - 1
+            lvm.sp -= k - 1
 
 
 class PrintStringConstantOperator(LVMOperator):
-    op_name="prc"
+    op_name = "prc"
 
     def execute(self, lvm):
         print(lvm.H[self.op1], end="")
 
 
 class PrintStringLocation(LVMOperator):
-    op_name="prs"
+    op_name = "prs"
 
     def execute(self, lvm):
         adr = lvm.M[lvm.sp]
@@ -349,14 +349,12 @@ class PrintStringLocation(LVMOperator):
 
 
 class DefineLabelOperator(LVMOperator):
-    op_name="lbl"
+    op_name = "lbl"
 
 
 class NoOperationOperator(LVMOperator):
-    op_name="nop"
+    op_name = "nop"
 
 
 class StopProgramOperator(LVMOperator):
-    op_name="end"
-
-
+    op_name = "end"
