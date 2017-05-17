@@ -126,3 +126,133 @@ class AbsoluteOperator(UnOPOperator):
 class NotOperator(UnOPOperator):
     op_name = 'not'
     operator = operator.not_
+
+class CallFunctionOperator(LVMOperator):
+    op_name="cfu"
+
+    def execute(self, lvm):
+        lvm.sp += 1
+        lvm.M[lvm.sp] =lvm.pc+1
+        lvm.pc = self.op1
+
+class EnterFunctionOperator(LVMOperator):
+    op_name="enf"
+
+    def execute(self, lvm):
+        lvm.sp += 1
+        lvm.M[lvm.sp] = lvm.D[self.op1]
+        lvm.D[self.op1] = lvm.sp + 1
+
+class ReturnFromFunctionOperator(LVMOperator):
+    op_name="ret"
+
+    def execute(self, lvm):
+        lvm.D[self.op1] = lvm.M[lvm.sp]
+        lvm.pc = lvm.M[lvm.sp - 1]
+        lvm.sp -= self.op2 + 2
+
+class IndexOperator(LVMOperator):
+    op_name = "idx"
+
+    def execute(self, lvm):
+        lvm.M[lvm.sp - 1] += lvm.M[lvm.sp] * self.op1
+        lvm.sp -= 1
+
+class GetReferenceContentsOperator(LVMOperator):
+    op_name="grc"
+
+    def execute(self, lvm):
+        lvm.M[lvm.sp] = lvm.M[lvm.M[lvm.sp]]
+
+class LoadMultipleValuesOperator(LVMOperator):
+    op_name="lmv"
+
+def execute(self, lvm):
+    t = lvm.M[lvm.sp]
+    k = self.op1
+    lvm.M[lvm.sp : lvm.sp + k]=lvm.M[ t : t + k]
+
+class StoreMultipleValuesOperator(LVMOperator):
+    op_name = "smv"
+
+    def execute(self, lvm):
+        k = self.op1
+        t = lvm.M[lvm.sp - k]
+        lvm.M[t : t + k] =lvm.M[lvm.sp - k + 1 : lvm.sp + 1]
+        lvm.sp -= k+1
+
+class StoreMultipleReferencesOperator(LVMOperator):
+    op_name="smr"
+
+    def execute(self, lvm):
+        t1 = lvm.M[lvm.sp - 1]
+        t2 = lvm.M[lvm.sp]
+        lvm.M[t1 : t1 + self.op1] = lvm.M[t2 : t2 + self.op1]
+        lvm.sp -= 1
+
+class StoreStringConstantOperator(LVMOperator):
+    op_name="sts"
+
+    def execute(self, lvm):
+        adr = lvm.M[lvm.sp]
+        lvm.M[adr] = len(lvm.H[self.op1])
+        for c in lvm.H[self.op1]:
+            adr += 1
+            lvm.M[adr] = c
+        lvm.sp -= 1
+
+class ReadStringOperator(LVMOperator):
+    op_name="rds"
+
+    def execute(self, lvm):
+        string = input()
+        adr = lvm.M[lvm.sp]
+        lvm.M[adr] = len(string)
+        for k in string:
+            adr += 1
+            lvm.M[adr] = k
+        lvm.sp -= 1
+
+class PrintValueOperator(LVMOperator):
+    op_name="prv"
+
+    def execute(self, lvm):
+        if self.op1:
+            print(char(lvm.M[lvm.sp]))
+        else:
+            print(lvm.M[lvm.sp])
+        lvm.sp -= 1
+
+class PrintMultipleValuesOperator(LVMOperator):
+    op_name="prt"
+
+    def execute(self, lvm):
+        for k in range(self.op1):
+            print(lvm.M[lvm.sp - k + 1])
+        lvm.sp -= k - 1
+
+class PrintStringConstantOperator(LVMOperator):
+    op_name="prc"
+
+    def execute(self, lvm):
+        print(lvm.H[self.op1], end="")
+
+class PrintStringLocation(LVMOperator):
+    op_name="prs"
+
+    def execute(self, lvm):
+        adr = lvm.M[lvm.sp]
+        length = lvm.M[adr]
+        for i in range(length):
+            adr += 1
+            print(lvm.M[adr], end="")
+            lvm.sp -= 1
+
+class DefineLabelOperator(LVMOperator):
+    op_name="lbl"
+
+class NoOperationOperator(LVMOperator):
+    op_name="nop"
+
+class StopProgramOperator(LVMOperator):
+    op_name="end"
