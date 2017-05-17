@@ -196,3 +196,11 @@ class AbsoluteOperator(UnOPOperator):
 class NotOperator(UnOPOperator):
     op_name = 'not'
     operator = operator.not_
+
+
+class ReadValueOperator(LVMOperator):
+    op_name = 'rdv'
+
+    def execute(self, lvm):
+        lvm.sp += 1
+        lvm.M[lvm.sp] = input()

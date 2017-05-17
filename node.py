@@ -866,6 +866,22 @@ class BuiltinCall(FuncCallBase):
         super().__init__(*args)
         self.display_name = 'builtin-call'
 
+    def lvm_operators(self):
+        call_symbol = self.identifier.get_symbol()
+        op_list = []
+        if call_symbol.name == 'READ':
+            for arg in self.arg_list:
+                arg_symbol = arg.get_symbol()
+                if arg_symbol == string_symbol:
+                    print("FALTA READ STRING")
+                else:
+                    op_list += [
+                        LVM.ReadValueOperator(),
+                        LVM.StoreValueOperator(arg_symbol.stack_level, arg_symbol.stack_offset)
+                    ]
+
+        return op_list
+
 
 class BuiltinName(Identifier):
     pass
