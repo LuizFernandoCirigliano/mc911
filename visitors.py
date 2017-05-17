@@ -1,4 +1,5 @@
 from node import Node
+from LVM import StartOperator
 
 
 class GenericVisitor:
@@ -35,6 +36,10 @@ class VisualizationVisitor(GenericVisitor):
 
 
 class LVMVisitor(GenericVisitor):
+    def __init__(self, inner_visitor=None):
+        super().__init__(inner_visitor)
+        self.result = [StartOperator()]
+
     @staticmethod
     def f(node: Node):
         return node.lvm_operators()

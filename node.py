@@ -3,6 +3,7 @@ import errors
 from typing import List
 import LVM
 
+
 class Node(object):
     def __init__(self, line_number):
         self.display_name = ''
@@ -125,6 +126,31 @@ class BasicMode(Node):
         return cur_context.symbol_env.lookup(self.node_type).expr_type
 
 
+class Identifier(Node):
+    def __init__(self, line_number, name: str):
+        super().__init__(line_number)
+        self.display_name = 'identifier'
+        self.name = name
+
+    def __str__(self):
+        return "ID: " + self.name
+
+    @property
+    def expr_type(self) -> ExprType:
+        return self.get_symbol().expr_type
+
+    def __validate_node__(self):
+        self.issues = []
+        symbol = cur_context.symbol_env.lookup(self.name)
+        valid = symbol is not None
+        if not valid:
+            self.issues.append(errors.UndeclaredVariable(self.name))
+        return valid
+
+    def get_symbol(self) -> Symbol:
+        return cur_context.symbol_env.lookup(self.name) or void_symbol
+
+
 class LiteralNode(Node):
     def __init__(self, line_number, value, type_name: str):
         super().__init__(line_number)
@@ -238,6 +264,9 @@ class Declaration(IdentifierInitialization):
         super().__init__(line_number, identifier_list, mode=mode, initialization=initialization)
         self.display_name = 'dcl'
 
+    def lvm_operators(self):
+        return [LVM.AllocateOperator(len(self.identifier_list))]
+
 
 class SynonymStatement(Node):
     def __init__(self, line_number, synonym_list: list):
@@ -330,8 +359,10 @@ class BinOp(Node):
         '&&': [LVM.LogicalAndOperator()],
         '||': [LVM.LogicalOrOperator()],
         '<': [LVM.LessOperator()],
+        '<=': [LVM.LessOrEqualOperator()],
         '==': [LVM.EqualOperator()],
-        '>=': [LVM.LessOperator(),  LVM.NotOperator()],
+        '>=': [LVM.GreaterOrEqualOperator()],
+        '>': [LVM.GreaterOperator()],
         '!=': [LVM.NotEqualOperator()]
     }
 
@@ -421,29 +452,6 @@ class DiscreteRangeMode(Node):
     @property
     def expr_type(self):
         return ExprType("discrete range", self.mode_node.expr_type)
-
-
-class Identifier(Node):
-    def __init__(self, line_number, name: str):
-        super().__init__(line_number)
-        self.display_name = 'identifier'
-        self.name = name
-
-    def __str__(self):
-        return "ID: " + self.name
-
-    @property
-    def expr_type(self) -> ExprType:
-        var = cur_context.symbol_env.lookup(self.name) or void_symbol
-        return var.expr_type
-
-    def __validate_node__(self):
-        self.issues = []
-        symbol = cur_context.symbol_env.lookup(self.name)
-        valid = symbol is not None
-        if not valid:
-            self.issues.append(errors.UndeclaredVariable(self.name))
-        return valid
 
 
 class StringMode(Node):
@@ -842,8 +850,15 @@ class FuncCallBase(Node):
 
     @property
     def expr_type(self) -> ExprType:
-        symbol = cur_context.symbol_env.lookup(self.identifier.name) or void_symbol
-        return symbol.expr_type
+        return self.identifier.expr_type
+
+    def __validate_node__(self):
+        if self.identifier.get_symbol().category != SymbolCategory.PROCEDURE:
+            self.issues.append(
+                errors.CallingNonCallable(self.identifier.name)
+            )
+            return False
+        return True
 
 
 class BuiltinCall(FuncCallBase):
@@ -852,17 +867,8 @@ class BuiltinCall(FuncCallBase):
         self.display_name = 'builtin-call'
 
 
-class BuiltinName(Node):
-    def __init__(self, line_number, name):
-        super().__init__(line_number)
-        self.name = name
-
-    @property
-    def expr_type(self) -> ExprType:
-        return cur_context.symbol_env.lookup(self.name).expr_type
-
-    def __str__(self):
-        return str(self.name)
+class BuiltinName(Identifier):
+    pass
 
 
 class ProcedureCall(FuncCallBase):

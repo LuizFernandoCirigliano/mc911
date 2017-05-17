@@ -79,3 +79,12 @@ class VariableRedeclaration(SemanticError):
         return "\"{}\" already declarated on line {}".format(
             self.var_name, self.prev_decl_line
         )
+
+
+class CallingNonCallable(SemanticError):
+    def __init__(self, var_name):
+        super().__init__()
+        self.var_name = var_name
+
+    def message(self):
+        return "Attempting to call {}, which is not a procedure".format(self.var_name)

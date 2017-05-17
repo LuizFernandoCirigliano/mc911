@@ -20,9 +20,8 @@ if __name__ == '__main__':
             lvm_visitor.visit_tree(AST)
             print(lvm_visitor.result)
 
-            lvm = LVM()
-            for op in lvm_visitor.result:
-                op.execute(lvm)
+            lvm = LVM(lvm_visitor.result)
+            lvm.run()
             print(lvm.stack())
 
         html = make_html(AST)

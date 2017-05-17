@@ -1,2 +1,2 @@
-dcl z bool = true && false;
-dcl x bool = 3 > 2;
+dcl z bool;
+dcl a, b, c bool;
