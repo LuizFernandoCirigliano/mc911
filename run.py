@@ -13,15 +13,17 @@ if __name__ == '__main__':
     pp = PeterParser()
     AST = pp.parse(data)
     if AST:
-        AST.validate_node()
+        AST.validation_visitor()
         semantic_visitor.visit_tree(AST)
 
         if AST.is_valid:
-            lvm_visitor.visit_tree(AST)
-            print(lvm_visitor.result)
+            inst_list = AST.lvm_visitor()
+            print(inst_list)
 
-            lvm = LVM(lvm_visitor.result)
+            #lvm = LVM(lvm_visitor.result)
+            lvm = LVM(inst_list)
             lvm.run()
+            print("DONE---Printing Stack")
             print(lvm.stack())
 
         html = make_html(AST)

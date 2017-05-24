@@ -1,2 +1,22 @@
-dcl a int;
-read(a);
+dcl a int = 1;
+if a == 1 then
+    a = 2;
+elsif a == 2 then
+    a = 3;
+else
+    a = 4;
+fi;
+
+/*
+do
+  for i = 1 to 3;
+    print(i);
+od;
+
+dcl i int = 1;
+do
+    while i <= 3;
+        print(i);
+        i+=1;
+od;
+*/

@@ -3,12 +3,14 @@ import operator
 
 class LVM:
     def __init__(self, operator_list):
+        self.pc = 0
         self.sp = -1
         self.M = [None] * 100
         self.bp = 0
         self.D = [None] * 100
         self.P = operator_list
         self.H = []
+        self.label_to_pc = {}
 
     def top_of_stack(self):
         return self.M[self.sp]
@@ -17,10 +19,17 @@ class LVM:
         return self.M[:self.sp + 1]
 
     def run(self):
-        pc = 0
-        while pc < len(self.P):
-            self.P[pc].execute(lvm=self)
-            pc += 1
+        self.pc = 0
+        while self.pc < len(self.P):
+            self.P[self.pc].first_pass(lvm=self)
+            self.pc += 1
+
+        self.pc = 0
+        while self.pc < len(self.P):
+            # print(self.P[self.pc])
+            self.P[self.pc].execute(lvm=self)
+            self.pc += 1
+            # print(self.stack())
 
 
 class LVMOperator:
@@ -46,6 +55,9 @@ class LVMOperator:
         return str(self.tuple)
 
     def execute(self, lvm):
+        pass
+
+    def first_pass(self, lvm):
         pass
 
 
@@ -324,9 +336,8 @@ class PrintMultipleValuesOperator(LVMOperator):
     op_name = "prt"
 
     def execute(self, lvm):
-        for k in range(self.op1):
-            print(lvm.M[lvm.sp - k + 1])
-            lvm.sp -= k - 1
+        print(lvm.M[lvm.sp - self.op1 + 1:lvm.sp + 1])
+        lvm.sp -= self.op1
 
 
 class PrintStringConstantOperator(LVMOperator):
@@ -351,6 +362,9 @@ class PrintStringLocation(LVMOperator):
 class DefineLabelOperator(LVMOperator):
     op_name = "lbl"
 
+    def first_pass(self, lvm):
+        lvm.label_to_pc[self.op1] = lvm.pc
+
 
 class NoOperationOperator(LVMOperator):
     op_name = "nop"
@@ -358,3 +372,19 @@ class NoOperationOperator(LVMOperator):
 
 class StopProgramOperator(LVMOperator):
     op_name = "end"
+
+
+class JumpOnFalseOperator(LVMOperator):
+    op_name = 'jof'
+
+    def execute(self, lvm):
+        if not lvm.M[lvm.sp]:
+            lvm.pc = lvm.label_to_pc[self.op1]
+        lvm.sp -= 1
+
+
+class JumpOperator(LVMOperator):
+    op_name = 'jmp'
+
+    def execute(self, lvm):
+        lvm.pc = lvm.label_to_pc[self.op1]

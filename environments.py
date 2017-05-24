@@ -140,6 +140,7 @@ class Environment(object):
 
 class Context:
     def __init__(self):
+        self.label_count = 0
         self.symbol_env = self.get_default_mode_env()
 
     def reset(self):
@@ -169,15 +170,15 @@ class Context:
         if var_list is None:
             return True
 
-        from errors import UndeclaredVariable, VariableRedeclaration
+        from errors import VariableRedeclaration
         valid_identifiers = True
 
-        for identifier in var_list:
-            identifier.issues = [x for x in identifier.issues if type(x) != UndeclaredVariable]
-            if len(identifier.issues) == 0:
-                identifier.__is_valid__ = True
-            else:
-                valid_identifiers = False
+        # for identifier in var_list:
+        #     identifier.issues = [x for x in identifier.issues if type(x) != UndeclaredVariable]
+        #     if len(identifier.issues) == 0:
+        #         identifier.__is_valid__ = True
+        #     else:
+        #         valid_identifiers = False
 
         for identifier in var_list:
             prev = self.symbol_env.find(identifier.name)

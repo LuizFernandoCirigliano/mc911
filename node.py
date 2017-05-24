@@ -3,6 +3,22 @@ import errors
 from typing import List
 import LVM
 
+op_to_instr = {
+    '+': [LVM.AddOperator()],
+    '-': [LVM.SubOperator()],
+    '*': [LVM.MulOperator()],
+    '/': [LVM.DivOperator()],
+    '%': [LVM.ModOperator()],
+    '&&': [LVM.LogicalAndOperator()],
+    '||': [LVM.LogicalOrOperator()],
+    '<': [LVM.LessOperator()],
+    '<=': [LVM.LessOrEqualOperator()],
+    '==': [LVM.EqualOperator()],
+    '>=': [LVM.GreaterOrEqualOperator()],
+    '>': [LVM.GreaterOperator()],
+    '!=': [LVM.NotEqualOperator()]
+}
+
 
 class Node(object):
     def __init__(self, line_number):
@@ -33,11 +49,11 @@ class Node(object):
     def is_valid(self):
         return self.__is_valid__
 
-    def validate_node(self) -> bool:
+    def validation_visitor(self) -> bool:
         self.issues = []
 
         for c in self.children:
-            c.validate_node()
+            c.validation_visitor()
 
         self.__is_valid__ = self.__validate_node__()
         if not self.__is_valid__:
@@ -53,7 +69,14 @@ class Node(object):
     def __validate_node__(self):
         return True
 
-    def lvm_operators(self) -> List[LVM.LVMOperator]:
+    def lvm_visitor(self):
+        children_ops = [c.lvm_visitor() for c in self.children]
+        return self.lvm_operators_pre() + [item for sublist in children_ops for item in sublist] + self.lvm_operators_pos()
+
+    def lvm_operators_pos(self) -> List[LVM.LVMOperator]:
+        return []
+
+    def lvm_operators_pre(self) -> List[LVM.LVMOperator]:
         return []
 
     def print_error(self):
@@ -126,11 +149,18 @@ class BasicMode(Node):
         return cur_context.symbol_env.lookup(self.node_type).expr_type
 
 
+class IdentifierUsage(Enum):
+    VALUE_USAGE = 0
+    DECLARATION = 1
+    ASSIGNMENT = 2
+
+
 class Identifier(Node):
     def __init__(self, line_number, name: str):
         super().__init__(line_number)
         self.display_name = 'identifier'
         self.name = name
+        self.usage = IdentifierUsage.VALUE_USAGE
 
     def __str__(self):
         return "ID: " + self.name
@@ -141,6 +171,8 @@ class Identifier(Node):
 
     def __validate_node__(self):
         self.issues = []
+        if self.usage == IdentifierUsage.DECLARATION:
+            return True
         symbol = cur_context.symbol_env.lookup(self.name)
         valid = symbol is not None
         if not valid:
@@ -149,6 +181,13 @@ class Identifier(Node):
 
     def get_symbol(self) -> Symbol:
         return cur_context.symbol_env.lookup(self.name) or void_symbol
+
+    def lvm_operators_pos(self):
+        if self.usage == IdentifierUsage.VALUE_USAGE:
+            symbol = self.get_symbol()
+            if symbol.category == SymbolCategory.VARIABLE:
+                return [LVM.LoadValueOperator(symbol.stack_level, symbol.stack_offset)]
+        return []
 
 
 class LiteralNode(Node):
@@ -167,7 +206,7 @@ class LiteralNode(Node):
         return cur_context.symbol_env.lookup(self.type_name).expr_type
 
     #TODO checar para string
-    def lvm_operators(self):
+    def lvm_operators_pos(self):
         return [LVM.LoadConstantOperator(self.value)]
 
 
@@ -204,6 +243,12 @@ class Program(Node):
     def children(self):
         return self.statement_list
 
+    def lvm_operators_pre(self):
+        return [LVM.StartOperator()]
+
+    def lvm_operators_pos(self):
+        return [LVM.StopProgramOperator()]
+
 
 class IdentifierInitialization(Node):
     def __init__(self, line_number, identifier_list: list, mode: Node = None, initialization: Node = None):
@@ -211,6 +256,8 @@ class IdentifierInitialization(Node):
         self.identifier_list = identifier_list
         self.mode_node = mode
         self.initialization = initialization
+        for id_node in self.identifier_list:
+            id_node.usage = IdentifierUsage.DECLARATION
 
     @property
     def children(self):
@@ -264,7 +311,7 @@ class Declaration(IdentifierInitialization):
         super().__init__(line_number, identifier_list, mode=mode, initialization=initialization)
         self.display_name = 'dcl'
 
-    def lvm_operators(self):
+    def lvm_operators_pos(self):
         return [LVM.AllocateOperator(len(self.identifier_list))]
 
 
@@ -337,7 +384,7 @@ class UnOp(Node):
             )
         return valid
 
-    def lvm_operators(self):
+    def lvm_operators_pos(self):
         return self.op_to_instr[self.operator.symbol]
 
 
@@ -349,22 +396,6 @@ class BinOp(Node):
     })
 
     int_to_bool_ops = ['==', '!=', '>', '>=', '<', '>=', '<', '<=']
-
-    op_to_instr = {
-        '+': [LVM.AddOperator()],
-        '-': [LVM.SubOperator()],
-        '*': [LVM.MulOperator()],
-        '/': [LVM.DivOperator()],
-        '%': [LVM.ModOperator()],
-        '&&': [LVM.LogicalAndOperator()],
-        '||': [LVM.LogicalOrOperator()],
-        '<': [LVM.LessOperator()],
-        '<=': [LVM.LessOrEqualOperator()],
-        '==': [LVM.EqualOperator()],
-        '>=': [LVM.GreaterOrEqualOperator()],
-        '>': [LVM.GreaterOperator()],
-        '!=': [LVM.NotEqualOperator()]
-    }
 
     def __init__(self, line_number, left: Node, op: OperatorNode, right: Node):
         super().__init__(line_number)
@@ -403,8 +434,8 @@ class BinOp(Node):
             )
         return valid_operator
 
-    def lvm_operators(self):
-        return self.op_to_instr[self.op.symbol]
+    def lvm_operators_pos(self):
+        return op_to_instr[self.op.symbol]
 
 
 class ReferenceMode(Node):
@@ -513,6 +544,8 @@ class ModeDefinition(Node):
         self.display_name = 'mode-def'
         self.mode_node = mode
         self.identifier_list = identifier_list
+        for id_node in self.identifier_list:
+            id_node.usage = IdentifierUsage.DECLARATION
 
     @property
     def children(self):
@@ -522,9 +555,9 @@ class ModeDefinition(Node):
     def labels(self):
         return ['', 'mode']
 
-    def validate_node(self):
+    def validation_visitor(self):
         cur_context.insert_symbol(self.identifier_list, self.mode_node.expr_type, SymbolCategory.MODE, self)
-        return super().validate_node()
+        return super().validation_visitor()
 
 
 class FormalParameter(Node):
@@ -588,6 +621,7 @@ class ProcedureStatement(Node):
         super().__init__(line_number)
         self.display_name = 'proc-stat'
         self.label_id = label_id
+        self.label_id.usage = IdentifierUsage.DECLARATION
         self.procedure_definition = procedure_definition
 
         result = self.procedure_definition.result_spec
@@ -597,7 +631,7 @@ class ProcedureStatement(Node):
     def children(self):
         return [self.label_id, self.procedure_definition]
 
-    def validate_node(self) -> bool:
+    def validation_visitor(self) -> bool:
         cur_context.insert_symbol([self.label_id], self.mode.expr_type, SymbolCategory.PROCEDURE, self)
         cur_context.symbol_env.push(self)
 
@@ -608,7 +642,7 @@ class ProcedureStatement(Node):
                                           param.expr_type,
                                           SymbolCategory.VARIABLE,
                                           self)
-        valid = super().validate_node()
+        valid = super().validation_visitor()
 
         cur_context.symbol_env.pop()
 
@@ -770,17 +804,28 @@ class ActionStatement(Node):
             c.append(self.label_id)
         return c
 
-    def validate_node(self):
+    def validation_visitor(self):
         if self.label_id:
             cur_context.insert_symbol([self.label_id], self.action.expr_type, SymbolCategory.ACTION, self)
-        return super().validate_node()
+        return super().validation_visitor()
+
+
+class AssigningOperator(Node):
+    def __init__(self, line_number, closed_dyadic_op=None):
+        super().__init__(line_number)
+        self.display_name = 'assign-op'
+        self.closed_dyadic_op = closed_dyadic_op
+
+    def __str__(self):
+        return "{}=".format(self.closed_dyadic_op) if self.closed_dyadic_op else "="
 
 
 class AssignmentAction(Node):
-    def __init__(self, line_number, location, operator, expression):
+    def __init__(self, line_number, location: Identifier, operator: AssigningOperator, expression):
         super().__init__(line_number)
         self.display_name = 'assign-act'
         self.location = location
+        self.location.usage = IdentifierUsage.ASSIGNMENT
         self.operator = operator
         self.expression = expression
 
@@ -803,15 +848,14 @@ class AssignmentAction(Node):
             return False
         return True
 
-
-class AssigningOperator(Node):
-    def __init__(self, line_number, closed_dyadic_op=None):
-        super().__init__(line_number)
-        self.display_name = 'assign-op'
-        self.closed_dyadic_op = closed_dyadic_op
-
-    def __str__(self):
-        return "{}=".format(self.closed_dyadic_op) if self.closed_dyadic_op else "="
+    def lvm_operators_pos(self):
+        var = self.location.get_symbol()
+        op_list = []
+        if self.operator.closed_dyadic_op:
+            op_list = [
+                LVM.LoadValueOperator(var.stack_level, var.stack_offset),
+            ] + op_to_instr[self.operator.closed_dyadic_op]
+        return op_list + [LVM.StoreValueOperator(var.stack_level, var.stack_offset)]
 
 
 class ReturnAction(Node):
@@ -866,7 +910,7 @@ class BuiltinCall(FuncCallBase):
         super().__init__(*args)
         self.display_name = 'builtin-call'
 
-    def lvm_operators(self):
+    def lvm_operators_pos(self):
         call_symbol = self.identifier.get_symbol()
         op_list = []
         if call_symbol.name == 'READ':
@@ -879,7 +923,15 @@ class BuiltinCall(FuncCallBase):
                         LVM.ReadValueOperator(),
                         LVM.StoreValueOperator(arg_symbol.stack_level, arg_symbol.stack_offset)
                     ]
-
+        elif call_symbol.name == 'PRINT':
+            # for arg in self.arg_list:
+            #     arg_symbol = arg.get_symbol()
+            #     if arg_symbol is None:
+            #         raise ValueError
+            #     op_list += [
+            #         LVM.LoadValueOperator(arg_symbol.stack_level, arg_symbol.stack_offset)
+            #     ]
+            op_list += [LVM.PrintMultipleValuesOperator(len(self.arg_list))]
         return op_list
 
 
@@ -899,6 +951,7 @@ class StepEnumeration(Node):
         self.display_name = "enum-up" if up else "enum-down"
         self.up = up
         self.identifier = identifier
+        self.identifier.usage = IdentifierUsage.DECLARATION
         self.from_exp = from_exp
         self.to_exp = to_exp
         self.step_val = step_val
@@ -917,9 +970,9 @@ class StepEnumeration(Node):
             e.append('step-val')
         return e
 
-    def validate_node(self):
+    def validation_visitor(self):
         cur_context.insert_symbol([self.identifier], int_symbol.expr_type, SymbolCategory.VARIABLE, self)
-        return super().validate_node()
+        return super().validation_visitor()
 
 
 class RangeEnum(Node):
@@ -928,15 +981,16 @@ class RangeEnum(Node):
         self.display_name = "rng-up" if up else "rng-down"
         self.up = up
         self.identifier = identifier
+        self.identifier.usage = IdentifierUsage.DECLARATION
         self.discrete_mode = discrete_mode
 
     @property
     def children(self):
         return [self.identifier, self.discrete_mode]
 
-    def validate_node(self) -> bool:
+    def validation_visitor(self) -> bool:
         cur_context.insert_symbol([self.identifier], int_symbol.expr_type, SymbolCategory.VARIABLE, self)
-        return super().validate_node()
+        return super().validation_visitor()
 
 
 class ControlPart(Node):
@@ -945,6 +999,7 @@ class ControlPart(Node):
         self.display_name = 'ctrl-part'
         self.for_ctrl = for_ctrl
         self.while_ctrl = while_ctrl
+        self.label_number = None
 
     @property
     def children(self):
@@ -964,6 +1019,9 @@ class ControlPart(Node):
             e.append('while')
         return e
 
+    def lvm_operators_pos(self):
+        return [LVM.JumpOnFalseOperator(self.label_number+1)]
+
 
 class DoAction(Node):
     def __init__(self, line_number, ctrl_part=None, action_st_list=None):
@@ -971,6 +1029,10 @@ class DoAction(Node):
         self.display_name = 'do-act'
         self.ctrl_part = ctrl_part
         self.action_st_list = action_st_list
+        self.label_number = cur_context.label_count
+        if self.ctrl_part:
+            self.ctrl_part.label_number = self.label_number
+        cur_context.label_count += 2
 
     @property
     def children(self):
@@ -981,27 +1043,66 @@ class DoAction(Node):
             c.append(ListNode(self.action_st_list))
         return c
 
-    def validate_node(self) -> bool:
+    def validation_visitor(self) -> bool:
         cur_context.symbol_env.push(self)
-        valid = super().validate_node()
+        valid = super().validation_visitor()
         cur_context.symbol_env.pop()
         return valid
 
+    def lvm_operators_pre(self):
+        return [LVM.DefineLabelOperator(self.label_number)]
 
-class IfAction(Node):
-    def __init__(self, line_number, expression, then_clause, elsif_clause=None, else_clause=None):
+    def lvm_operators_pos(self):
+        if self.ctrl_part:
+            return [
+                LVM.JumpOperator(self.label_number),
+                LVM.DefineLabelOperator(self.label_number+1)
+            ]
+        else:
+            return [
+                LVM.DefineLabelOperator(self.label_number + 1)
+            ]
+
+
+class ElsifAction(Node):
+    def __init__(self, line_number, expression, then_clause):
         super().__init__(line_number)
         self.display_name = 'if-act'
         self.expression = expression
         self.then_clause = then_clause
-        self.elsif_clause = elsif_clause
+        self.true_label_number = None
+        self.false_label_number = None
+
+    @property
+    def children(self):
+        return [self.expression, self.then_clause]
+
+    @property
+    def labels(self):
+        return ['exp', 'then']
+
+    def lvm_operators_pre(self):
+        pass
+
+
+class IfAction(Node):
+    def __init__(self, line_number, expression, then_clause, elsif_list=None, else_clause=None):
+        super().__init__(line_number)
+        self.display_name = 'if-act'
+        self.expression = expression
+        self.then_clause = then_clause
+        self.elsif_list = elsif_list
         self.else_clause = else_clause
+        self.initial_label_number = cur_context.label_count
+        extra_labels = (len(self.elsif_list) if self.elsif_list else 0) + (1 if else_clause else 0)
+        self.final_label_number = self.initial_label_number + extra_labels
+        cur_context.label_count = self.final_label_number + 1
 
     @property
     def children(self):
         c = [self.expression, self.then_clause]
-        if self.elsif_clause:
-            c.append(self.elsif_clause)
+        if self.elsif_list:
+            c.append(self.elsif_list)
         if self.else_clause:
             c.append(self.else_clause)
         return c
@@ -1009,7 +1110,7 @@ class IfAction(Node):
     @property
     def labels(self):
         e = ['exp', 'then']
-        if self.elsif_clause:
+        if self.elsif_list:
             e.append('elsif')
         if self.else_clause:
             e.append('else')
