@@ -1,10 +1,10 @@
 dcl a int = 1;
-if a == 1 then
+if a > 1 then
     a = 2;
-elsif a == 2 then
+/*elsif a == 2 then
     a = 3;
 else
-    a = 4;
+    a = 4;*/
 fi;
 print(a);
 

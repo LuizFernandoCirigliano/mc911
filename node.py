@@ -118,6 +118,18 @@ class ListNode(Node):
         return True
 
 
+class StatementBlock(ListNode):
+    def __init__(self, child_list):
+        super().__init__(child_list, 'block')
+        self.end_jmp_label = None
+
+    def lvm_operators_pos(self):
+        if self.end_jmp_label:
+            return [LVM.JumpOperator(self.end_jmp_label)]
+        else:
+            return []
+
+
 class OperatorNode(Node):
     def __init__(self, line_number, symbol: str):
         super().__init__(line_number)
@@ -1115,3 +1127,8 @@ class IfAction(Node):
         if self.else_clause:
             e.append('else')
         return e
+
+    def lvm_operators_pos(self):
+        return [
+            LVM.DefineLabelOperator(self.final_label_number)
+        ]

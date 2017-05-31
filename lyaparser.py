@@ -450,13 +450,13 @@ class PeterParser(object):
     def p_then_clause(self, p):
         """then_clause : THEN
                        | THEN action_statement_list"""
-        p[0] = node.ListNode(p[2], 'then') if len(p) > 2 else None
+        p[0] = node.StatementBlock(p[2]) if len(p) > 2 else None
         # p[0] = p[2] if len(p) > 2 else None
 
     def p_else_clause(self, p):
         """else_clause : ELSE
                        | ELSE action_statement_list"""
-        p[0] = node.ListNode(p[2], 'else') if len(p) > 2 else None
+        p[0] = node.StatementBlock(p[2]) if len(p) > 2 else None
         # p[0] = p[2] if len(p) > 2 else None
 
     def p_elsif_clause(self, p):
