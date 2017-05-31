@@ -444,6 +444,7 @@ class PeterParser(object):
     def p_if_action(self, p):
         """if_action : IF expression then_clause FI
                      | IF expression then_clause else_clause FI
+                     | IF expression then_clause elsif_clause FI
                      | IF expression then_clause elsif_clause else_clause FI"""
         p[0] = node.IfAction(p.lexer.lineno, *p[2:len(p) - 1])
 
