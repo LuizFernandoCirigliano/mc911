@@ -1,6 +1,6 @@
 from lyaparser import PeterParser
 from visualization import make_html
-from visitors import semantic_visitor, lvm_visitor
+from visitors import semantic_visitor
 from LVM import LVM
 import sys
 

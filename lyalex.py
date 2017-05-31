@@ -104,6 +104,7 @@ class LexerLuthor(object):
 
     def t_COMMENT(self, t):
       r'(//.*|\/\*(.|\n)*?\*/)'
+      #TODO : Contar numero de \n dentro do comentario no numero da linha
       pass
       # No return value. Token discarded
 

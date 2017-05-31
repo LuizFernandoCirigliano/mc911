@@ -6,6 +6,7 @@ elsif a == 2 then
 else
     a = 4;
 fi;
+print(a);
 
 /*
 do

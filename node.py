@@ -1080,9 +1080,9 @@ class ElsifAction(Node):
     @property
     def labels(self):
         return ['exp', 'then']
-
-    def lvm_operators_pre(self):
-        pass
+    #
+    # def lvm_operators_pre(self):
+    #     return []
 
 
 class IfAction(Node):
@@ -1102,7 +1102,7 @@ class IfAction(Node):
     def children(self):
         c = [self.expression, self.then_clause]
         if self.elsif_list:
-            c.append(self.elsif_list)
+            c.append(ListNode(self.elsif_list, 'elsif'))
         if self.else_clause:
             c.append(self.else_clause)
         return c
