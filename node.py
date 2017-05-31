@@ -1076,14 +1076,14 @@ class DoAction(Node):
             ]
 
 
-class ElsifAction(Node):
+class ConditionalBlock(Node):
     def __init__(self, line_number, expression, then_clause):
         super().__init__(line_number)
         self.display_name = 'if-act'
         self.expression = expression
         self.then_clause = then_clause
-        self.true_label_number = None
-        self.false_label_number = None
+        self.exit_label_number = None
+        self.block_end_label_number = None
 
     @property
     def children(self):
@@ -1092,28 +1092,44 @@ class ElsifAction(Node):
     @property
     def labels(self):
         return ['exp', 'then']
-    #
-    # def lvm_operators_pre(self):
-    #     return []
+
+    def lvm_visitor(self):
+        operators = self.expression.lvm_visitor()
+        operators.append(LVM.JumpOnFalseOperator(self.block_end_label_number))
+        operators += self.then_clause.lvm_visitor()
+        operators += [LVM.JumpOperator(self.exit_label_number),
+                      LVM.DefineLabelOperator(self.block_end_label_number)]
+        return operators
 
 
 class IfAction(Node):
-    def __init__(self, line_number, expression, then_clause, elsif_list=None, else_clause=None):
+    def __init__(self, line_number, expression, then_clause, elsif_list:List[ConditionalBlock]=[], else_clause=None):
         super().__init__(line_number)
         self.display_name = 'if-act'
-        self.expression = expression
-        self.then_clause = then_clause
+        # self.expression = expression
+        # self.then_clause = then_clause
+        self.if_block = ConditionalBlock(line_number, expression, then_clause)
         self.elsif_list = elsif_list
         self.else_clause = else_clause
+
         self.initial_label_number = cur_context.label_count
-        extra_labels = (len(self.elsif_list) if self.elsif_list else 0) + (1 if else_clause else 0)
+
+        extra_labels = len(self.elsif_list) + (1 if else_clause else 0)
         self.final_label_number = self.initial_label_number + extra_labels
         cur_context.label_count = self.final_label_number + 1
 
+        self.if_block.exit_label_number = self.final_label_number
+        self.if_block.block_end_label_number = self.initial_label_number
+
+        for i, node in enumerate(self.elsif_list):
+            node.block_end_label_number = self.initial_label_number + i + 1
+            node.exit_label_number = self.final_label_number
+
     @property
     def children(self):
-        c = [self.expression, self.then_clause]
-        if self.elsif_list:
+        c = list()
+        c.append(self.if_block)
+        if len(self.elsif_list):
             c.append(ListNode(self.elsif_list, 'elsif'))
         if self.else_clause:
             c.append(self.else_clause)
@@ -1121,7 +1137,7 @@ class IfAction(Node):
 
     @property
     def labels(self):
-        e = ['exp', 'then']
+        e = ['if']
         if self.elsif_list:
             e.append('elsif')
         if self.else_clause:

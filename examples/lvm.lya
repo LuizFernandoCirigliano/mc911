@@ -1,12 +1,14 @@
-dcl a int = 1;
-if a > 1 then
-    a = 2;
-/*elsif a == 2 then
-    a = 3;
+dcl a int = 3;
+dcl b int;
+
+if a == 1 then
+    b = 2;
+elsif a == 2 then
+    b = 3;
 else
-    a = 4;*/
+    b = 4;
 fi;
-print(a);
+print(b);
 
 /*
 do

@@ -471,7 +471,7 @@ class PeterParser(object):
 
     def p_elsif_clause_exp(self, p):
         """elsif_clause_exp : ELSIF expression then_clause"""
-        p[0] = node.ElsifAction(p.lexer.lineno, *p[2:])
+        p[0] = node.ConditionalBlock(p.lexer.lineno, *p[2:])
 
     def p_do_action(self, p):
         """do_action : DO OD
