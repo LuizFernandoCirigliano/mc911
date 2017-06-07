@@ -16,16 +16,17 @@ if __name__ == '__main__':
         AST.validation_visitor()
         semantic_visitor.visit_tree(AST)
 
+        html = make_html(AST)
+        with open("{}.ast.html".format(file_name), 'w') as html_file:
+            html_file.write(html)
+
         if AST.is_valid:
             inst_list = AST.lvm_visitor()
             print(inst_list)
+            print("STARTING PROGRAM")
 
             #lvm = LVM(lvm_visitor.result)
             lvm = LVM(inst_list)
             lvm.run()
             print("DONE---Printing Stack")
             print(lvm.stack())
-
-        html = make_html(AST)
-        with open("{}.ast.html".format(file_name), 'w') as html_file:
-            html_file.write(html)

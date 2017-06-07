@@ -7,7 +7,7 @@ class LVM:
         self.sp = -1
         self.M = [None] * 10000
         self.bp = 0
-        self.D = [None] * 10000
+        self.D = [None] * 10
         self.P = operator_list
         self.H = []
         self.label_to_pc = {}
@@ -27,7 +27,8 @@ class LVM:
         self.pc = 0
         while self.pc < len(self.P):
             # print(self.P[self.pc])
-            self.P[self.pc].execute(lvm=self)
+            next_instr = self.P[self.pc]
+            next_instr.execute(lvm=self)
             self.pc += 1
             # print(self.stack())
 
@@ -216,7 +217,7 @@ class CallFunctionOperator(LVMOperator):
     def execute(self, lvm):
         lvm.sp += 1
         lvm.M[lvm.sp] = lvm.pc + 1
-        lvm.pc = self.op1
+        lvm.pc = lvm.label_to_pc[self.op1]
 
 
 class EnterFunctionOperator(LVMOperator):

@@ -198,7 +198,7 @@ class Identifier(Node):
         if self.usage == IdentifierUsage.VALUE_USAGE:
             symbol = self.get_symbol()
             if symbol.category == SymbolCategory.VARIABLE:
-                return [LVM.LoadValueOperator(symbol.stack_level, symbol.stack_offset)]
+                return [LVM.LoadValueOperator(symbol.display_level, symbol.offset)]
         return []
 
 
@@ -647,6 +647,11 @@ class ProcedureStatement(Node):
         result = self.procedure_definition.result_spec
         self.mode = result.mode_node if result else void_symbol
 
+        self.label_start = cur_context.label_count
+        self.label_end = cur_context.label_count + 1
+
+        cur_context.label_count += 2
+
     @property
     def children(self):
         return [self.label_id, self.procedure_definition]
@@ -654,8 +659,10 @@ class ProcedureStatement(Node):
     def validation_visitor(self) -> bool:
         formal_params = self.procedure_definition.formal_parameter_list
 
-        cur_context.insert_procedure(self.label_id, self.mode.expr_type, declaration=self, num_args=len(formal_params))
+        proc_symbol = cur_context.insert_procedure(self.label_id, self.mode.expr_type, start_label=self.label_start,
+                                                   declaration=self, num_args=len(formal_params or []))
         cur_context.symbol_env.push(self)
+        cur_context.function_stack.append(proc_symbol)
 
         if formal_params:
             for param in formal_params:
@@ -666,8 +673,19 @@ class ProcedureStatement(Node):
         valid = super().validation_visitor()
 
         cur_context.symbol_env.pop()
-
+        cur_context.function_stack.pop()
         return valid
+
+    def lvm_operators_pre(self):
+        return [
+            LVM.JumpOperator(self.label_end),
+            LVM.DefineLabelOperator(self.label_start)
+        ]
+
+    def lvm_operators_pos(self):
+        return [
+            LVM.DefineLabelOperator(self.label_end)
+        ]
 
 
 class ReferenceLocation(Node):
@@ -874,9 +892,9 @@ class AssignmentAction(Node):
         op_list = []
         if self.operator.closed_dyadic_op:
             op_list = [
-                LVM.LoadValueOperator(var.stack_level, var.stack_offset),
+                LVM.LoadValueOperator(var.display_level, var.offset),
             ] + op_to_instr[self.operator.closed_dyadic_op]
-        return op_list + [LVM.StoreValueOperator(var.stack_level, var.stack_offset)]
+        return op_list + [LVM.StoreValueOperator(var.display_level, var.offset)]
 
 
 class ReturnAction(Node):
@@ -884,6 +902,7 @@ class ReturnAction(Node):
         super().__init__(line_number)
         self.display_name = 'return'
         self.expression = expression
+        self.function_symbol = None
 
     @property
     def children(self):
@@ -892,6 +911,15 @@ class ReturnAction(Node):
     @property
     def expr_type(self):
         return self.expression.expr_type
+
+    def __validate_node__(self):
+        self.function_symbol = cur_context.function_stack[-1]
+        return True
+
+    def lvm_operators_pos(self):
+        return [
+            LVM.ReturnFromFunctionOperator(cur_context.symbol_env.scope_level() - 1, self.function_symbol.num_args)
+        ]
 
 
 class FuncCallBase(Node):
@@ -965,6 +993,18 @@ class ProcedureCall(FuncCallBase):
         super().__init__(*args)
         self.display_name = 'procedure-call'
 
+    def lvm_operators_pre(self):
+        return [
+            LVM.AllocateOperator(1)
+        ]
+
+    def lvm_operators_pos(self):
+        symbol = self.identifier.get_symbol()
+        return [
+            LVM.CallFunctionOperator(symbol.start_label),
+            LVM.EnterFunctionOperator(symbol.display_level)
+        ]
+
 
 class StepEnumeration(Node):
     def __init__(self, line_number, up, identifier, from_exp, to_exp, step_val=None):
@@ -991,9 +1031,9 @@ class StepEnumeration(Node):
             e.append('step-val')
         return e
 
-    def validation_visitor(self):
-        cur_context.insert_symbol([self.identifier], int_symbol.expr_type, SymbolCategory.VARIABLE, self)
-        return super().validation_visitor()
+    # def validation_visitor(self):
+    #     cur_context.insert_symbol([self.identifier], int_symbol.expr_type, SymbolCategory.VARIABLE, self)
+    #     return super().validation_visitor()
 
 
 class RangeEnum(Node):
@@ -1063,12 +1103,6 @@ class DoAction(Node):
         if self.action_st_list:
             c.append(ListNode(self.action_st_list))
         return c
-
-    def validation_visitor(self) -> bool:
-        cur_context.symbol_env.push(self)
-        valid = super().validation_visitor()
-        cur_context.symbol_env.pop()
-        return valid
 
     def lvm_operators_pre(self):
         return [LVM.DefineLabelOperator(self.label_number)]

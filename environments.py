@@ -37,8 +37,8 @@ class Symbol(object):
         self.name = name
         self.category = category
         self.expr_type = mode
-        self.stack_level = stack_level
-        self.stack_offset = stack_offset
+        self.display_level = stack_level
+        self.offset = stack_offset
 
     def __eq__(self, other):
         if self.category != other.category:
@@ -53,8 +53,12 @@ class Symbol(object):
 
 
 class ProcedureSymbol(Symbol):
-    def __init__(self, name, mode: ExprType, num_args: int =None, builtin: bool =False):
+    def __init__(self, name, mode: ExprType,
+                 start_label: int =None,
+                 num_args: int =None,
+                 builtin: bool =False):
         super().__init__(name, mode, SymbolCategory.PROCEDURE)
+        self.start_label = start_label
         self.num_args = num_args
         self.builtin = builtin
 
@@ -125,8 +129,8 @@ class Environment(object):
         return len(self.stack)
 
     def add_local(self, name, symbol: Symbol):
-        symbol.stack_offset = self.peek().var_count
-        symbol.stack_level = self.scope_level() - 1
+        symbol.offset = self.peek().var_count
+        symbol.display_level = self.scope_level() - 1
         self.peek().add(name, symbol)
 
     def add_root(self, name, value):
@@ -150,9 +154,7 @@ class Context:
     def __init__(self):
         self.label_count = 0
         self.symbol_env = self.get_default_mode_env()
-
-    def reset(self):
-        self.symbol_env = self.get_default_mode_env()
+        self.function_stack = []
 
     @staticmethod
     def get_default_mode_env():
@@ -171,7 +173,8 @@ class Context:
             'PRINT': ProcedureSymbol('PRINT', void_symbol.expr_type, builtin=True),
         }))
 
-    def insert_symbol(self, var_list, var_mode: ExprType, category: SymbolCategory, declaration: object):
+    def insert_symbol(self, var_list, var_mode: ExprType,
+                      category: SymbolCategory, declaration: object):
         if var_list is None:
             return True
 
@@ -193,7 +196,8 @@ class Context:
 
         return valid_identifiers
 
-    def insert_procedure(self, proc_id_node, ret_type: ExprType, declaration, num_args):
+    def insert_procedure(self, proc_id_node, ret_type: ExprType, start_label,
+                         declaration, num_args):
         from errors import VariableRedeclaration
         prev = self.symbol_env.find(proc_id_node.name)
         if prev:
@@ -201,12 +205,12 @@ class Context:
             line_number = prev_var.declaration.line_number if prev_var.declaration else None
             proc_id_node.issues.append(VariableRedeclaration(proc_id_node.name, line_number))
             proc_id_node.__is_valid__ = False
-            return False
+            return None
         else:
-            s = ProcedureSymbol(proc_id_node.name, ret_type, num_args=num_args)
+            s = ProcedureSymbol(proc_id_node.name, ret_type,
+                                start_label=start_label, num_args=num_args)
             self.symbol_env.add_local(proc_id_node.name, s)
-            return True
-
+            return s
 
 
 cur_context = Context()
