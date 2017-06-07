@@ -32,7 +32,8 @@ class SymbolCategory(Enum):
 
 
 class Symbol(object):
-    def __init__(self, name, mode: ExprType, category: SymbolCategory, stack_level: int=None, stack_offset: int=None):
+    def __init__(self, name, mode: ExprType, category: SymbolCategory,
+                 stack_level: int=None, stack_offset: int=None):
         self.name = name
         self.category = category
         self.expr_type = mode
@@ -49,6 +50,13 @@ class Symbol(object):
 
     def __repr__(self):
         return "{} , name: {}, type: {}".format(self.category, self.name, self.expr_type)
+
+
+class ProcedureSymbol(Symbol):
+    def __init__(self, name, mode: ExprType, num_args: int =None, builtin: bool =False):
+        super().__init__(name, mode, SymbolCategory.PROCEDURE)
+        self.num_args = num_args
+        self.builtin = builtin
 
 
 class BuiltinSymbol(Symbol):
@@ -154,31 +162,21 @@ class Context:
             string_symbol.name: string_symbol,
             bool_symbol.name: bool_symbol,
             void_symbol.name: void_symbol,
-            'ABS': BuiltinSymbol('ABS', int_symbol.expr_type, SymbolCategory.PROCEDURE),
-            'ASC': BuiltinSymbol('ASC', int_symbol.expr_type, SymbolCategory.PROCEDURE),
-            'UPPER': BuiltinSymbol('UPPER', int_symbol.expr_type, SymbolCategory.PROCEDURE),
-            'LOWER': BuiltinSymbol('LOWER', int_symbol.expr_type, SymbolCategory.PROCEDURE),
-            'NUM': BuiltinSymbol('NUM', int_symbol.expr_type, SymbolCategory.PROCEDURE),
-            'READ': BuiltinSymbol('READ', void_symbol.expr_type, SymbolCategory.PROCEDURE),
-            'PRINT': BuiltinSymbol('PRINT', void_symbol.expr_type, SymbolCategory.PROCEDURE),
+            'ABS': ProcedureSymbol('ABS', int_symbol.expr_type, builtin=True, num_args=1),
+            'ASC': ProcedureSymbol('ASC', int_symbol.expr_type, builtin=True, num_args=1),
+            'UPPER': ProcedureSymbol('UPPER', int_symbol.expr_type, builtin=True, num_args=1),
+            'LOWER': ProcedureSymbol('LOWER', int_symbol.expr_type, builtin=True, num_args=1),
+            'NUM': ProcedureSymbol('NUM', int_symbol.expr_type, builtin=True, num_args=1),
+            'READ': ProcedureSymbol('READ', void_symbol.expr_type, builtin=True),
+            'PRINT': ProcedureSymbol('PRINT', void_symbol.expr_type, builtin=True),
         }))
 
     def insert_symbol(self, var_list, var_mode: ExprType, category: SymbolCategory, declaration: object):
-        if type(var_mode) != ExprType:
-            raise TypeError(type(var_mode))
-
         if var_list is None:
             return True
 
         from errors import VariableRedeclaration
         valid_identifiers = True
-
-        # for identifier in var_list:
-        #     identifier.issues = [x for x in identifier.issues if type(x) != UndeclaredVariable]
-        #     if len(identifier.issues) == 0:
-        #         identifier.__is_valid__ = True
-        #     else:
-        #         valid_identifiers = False
 
         for identifier in var_list:
             prev = self.symbol_env.find(identifier.name)
@@ -194,5 +192,21 @@ class Context:
                 self.symbol_env.add_local(identifier.name, s)
 
         return valid_identifiers
+
+    def insert_procedure(self, proc_id_node, ret_type: ExprType, declaration, num_args):
+        from errors import VariableRedeclaration
+        prev = self.symbol_env.find(proc_id_node.name)
+        if prev:
+            prev_var = self.symbol_env.lookup(proc_id_node.name)
+            line_number = prev_var.declaration.line_number if prev_var.declaration else None
+            proc_id_node.issues.append(VariableRedeclaration(proc_id_node.name, line_number))
+            proc_id_node.__is_valid__ = False
+            return False
+        else:
+            s = ProcedureSymbol(proc_id_node.name, ret_type, num_args=num_args)
+            self.symbol_env.add_local(proc_id_node.name, s)
+            return True
+
+
 
 cur_context = Context()

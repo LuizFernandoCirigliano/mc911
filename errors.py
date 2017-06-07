@@ -88,3 +88,16 @@ class CallingNonCallable(SemanticError):
 
     def message(self):
         return "Attempting to call {}, which is not a procedure".format(self.var_name)
+
+
+class ArgCountError(SemanticError):
+    def __init__(self, func_name, expected_num, received_num):
+        super().__init__()
+        self.func_name = func_name
+        self.expected_num = expected_num
+        self.received_num = received_num
+
+    def message(self):
+        return "Expected {} argument for procedure {}, but received {}".format(
+            self.expected_num, self.func_name, self.received_num
+        )

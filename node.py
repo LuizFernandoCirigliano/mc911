@@ -335,7 +335,6 @@ class Declaration(IdentifierInitialization):
         return ops
 
 
-
 class SynonymStatement(Node):
     def __init__(self, line_number, synonym_list: list):
         super().__init__(line_number)
@@ -653,10 +652,11 @@ class ProcedureStatement(Node):
         return [self.label_id, self.procedure_definition]
 
     def validation_visitor(self) -> bool:
-        cur_context.insert_symbol([self.label_id], self.mode.expr_type, SymbolCategory.PROCEDURE, self)
+        formal_params = self.procedure_definition.formal_parameter_list
+
+        cur_context.insert_procedure(self.label_id, self.mode.expr_type, declaration=self, num_args=len(formal_params))
         cur_context.symbol_env.push(self)
 
-        formal_params = self.procedure_definition.formal_parameter_list
         if formal_params:
             for param in formal_params:
                 cur_context.insert_symbol(param.identifier_list,
@@ -919,9 +919,14 @@ class FuncCallBase(Node):
 
     def __validate_node__(self):
         func_symbol = self.identifier.get_symbol()
-        if func_symbol.category != SymbolCategory.PROCEDURE:
+        if type(func_symbol) is not ProcedureSymbol:
             self.issues.append(
                 errors.CallingNonCallable(self.identifier.name)
+            )
+            return False
+        if func_symbol.num_args is not None and func_symbol.num_args != len(self.arg_list or []):
+            self.issues.append(
+                errors.ArgCountError(func_symbol.name, func_symbol.num_args, len(self.arg_list or []))
             )
             return False
 
@@ -947,13 +952,6 @@ class BuiltinCall(FuncCallBase):
                         LVM.StoreValueOperator(arg_symbol.stack_level, arg_symbol.stack_offset)
                     ]
         elif call_symbol.name == 'PRINT':
-            # for arg in self.arg_list:
-            #     arg_symbol = arg.get_symbol()
-            #     if arg_symbol is None:
-            #         raise ValueError
-            #     op_list += [
-            #         LVM.LoadValueOperator(arg_symbol.stack_level, arg_symbol.stack_offset)
-            #     ]
             op_list += [LVM.PrintMultipleValuesOperator(len(self.arg_list))]
         return op_list
 

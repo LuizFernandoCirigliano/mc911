@@ -5,9 +5,9 @@ class LVM:
     def __init__(self, operator_list):
         self.pc = 0
         self.sp = -1
-        self.M = [None] * 100
+        self.M = [None] * 10000
         self.bp = 0
-        self.D = [None] * 100
+        self.D = [None] * 10000
         self.P = operator_list
         self.H = []
         self.label_to_pc = {}
