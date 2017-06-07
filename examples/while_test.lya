@@ -1,0 +1,8 @@
+dcl i int = 0;
+dcl a int = 1;
+do
+  while i < 10;
+    i += 1;
+    a = a * 2;
+od;
+print(a);

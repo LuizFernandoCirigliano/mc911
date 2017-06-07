@@ -323,8 +323,17 @@ class Declaration(IdentifierInitialization):
         super().__init__(line_number, identifier_list, mode=mode, initialization=initialization)
         self.display_name = 'dcl'
 
-    def lvm_operators_pos(self):
+    def lvm_operators_pre(self):
         return [LVM.AllocateOperator(len(self.identifier_list))]
+
+    def lvm_operators_pos(self):
+        ops = []
+        if self.initialization:
+            for identifier in self.identifier_list:
+                symbol = identifier.get_symbol()
+                ops.append(LVM.StoreValueOperator(symbol.stack_level, symbol.stack_offset))
+        return ops
+
 
 
 class SynonymStatement(Node):
@@ -909,11 +918,13 @@ class FuncCallBase(Node):
         return self.identifier.expr_type
 
     def __validate_node__(self):
-        if self.identifier.get_symbol().category != SymbolCategory.PROCEDURE:
+        func_symbol = self.identifier.get_symbol()
+        if func_symbol.category != SymbolCategory.PROCEDURE:
             self.issues.append(
                 errors.CallingNonCallable(self.identifier.name)
             )
             return False
+
         return True
 
 

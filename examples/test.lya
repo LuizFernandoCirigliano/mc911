@@ -1,14 +1,1 @@
-p1:proc ();
-  dcl x int = 3;
-  return x;
-end;
-
-type ptr = ref int;
-dcl x, y int, p ptr = ->x;
-q: proc () returns (int loc);
-  dcl z ptr;
-  z = ->y;
-  return z->;
-end;
-
-x();
+dcl a int = 1;
