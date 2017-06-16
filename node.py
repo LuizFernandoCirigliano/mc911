@@ -639,6 +639,8 @@ class ProcedureDefinition(Node):
 class ProcedureStatement(Node):
     def __init__(self, line_number, label_id: Identifier, procedure_definition: ProcedureDefinition):
         super().__init__(line_number)
+        self.symbol = None
+
         self.display_name = 'proc-stat'
         self.label_id = label_id
         self.label_id.usage = IdentifierUsage.DECLARATION
@@ -663,6 +665,7 @@ class ProcedureStatement(Node):
                                                    declaration=self, num_args=len(formal_params or []))
         cur_context.symbol_env.push(self)
         cur_context.function_stack.append(proc_symbol)
+        self.symbol = proc_symbol
 
         if formal_params:
             for param in formal_params:
@@ -679,7 +682,8 @@ class ProcedureStatement(Node):
     def lvm_operators_pre(self):
         return [
             LVM.JumpOperator(self.label_end),
-            LVM.DefineLabelOperator(self.label_start)
+            LVM.DefineLabelOperator(self.label_start),
+            LVM.EnterFunctionOperator(self.symbol.display_level)
         ]
 
     def lvm_operators_pos(self):
@@ -1002,7 +1006,7 @@ class ProcedureCall(FuncCallBase):
         symbol = self.identifier.get_symbol()
         return [
             LVM.CallFunctionOperator(symbol.start_label),
-            LVM.EnterFunctionOperator(symbol.display_level)
+            # LVM.EnterFunctionOperator(symbol.display_level)
         ]
 
 

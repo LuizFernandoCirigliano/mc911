@@ -28,9 +28,10 @@ class LVM:
         while self.pc < len(self.P):
             # print(self.P[self.pc])
             next_instr = self.P[self.pc]
+            print(self.pc, next_instr)
             next_instr.execute(lvm=self)
             self.pc += 1
-            # print(self.stack())
+            print(self.stack())
 
 
 class LVMOperator:
@@ -216,7 +217,7 @@ class CallFunctionOperator(LVMOperator):
 
     def execute(self, lvm):
         lvm.sp += 1
-        lvm.M[lvm.sp] = lvm.pc + 1
+        lvm.M[lvm.sp] = lvm.pc
         lvm.pc = lvm.label_to_pc[self.op1]
 
 
@@ -233,9 +234,13 @@ class ReturnFromFunctionOperator(LVMOperator):
     op_name = "ret"
 
     def execute(self, lvm):
+        # TODO: TALVEZ lvm.M[lvm.D[self.op1]] = ...
+        ret = lvm.M[lvm.sp]
+        lvm.sp -= 1
         lvm.D[self.op1] = lvm.M[lvm.sp]
         lvm.pc = lvm.M[lvm.sp - 1]
         lvm.sp -= self.op2 + 2
+        lvm.M[lvm.sp] = ret
 
 
 class IndexOperator(LVMOperator):
