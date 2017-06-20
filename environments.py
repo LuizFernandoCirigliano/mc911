@@ -128,9 +128,9 @@ class Environment(object):
     def scope_level(self):
         return len(self.stack)
 
-    def add_local(self, name, symbol: Symbol):
-        symbol.offset = self.peek().var_count
-        symbol.display_level = self.scope_level() - 1
+    def add_local(self, name, symbol: Symbol, offset=None, level=None):
+        symbol.offset = offset or self.peek().var_count
+        symbol.display_level = level or self.scope_level() - 1
         self.peek().add(name, symbol)
 
     def add_root(self, name, value):
@@ -196,8 +196,9 @@ class Context:
 
         return valid_identifiers
 
-    def insert_procedure(self, proc_id_node, ret_type: ExprType, start_label,
-                         declaration, num_args):
+    def insert_procedure(self, proc_id_node, ret_type: ExprType,
+                         start_label, declaration, num_args,
+                         display_level=1):
         from errors import VariableRedeclaration
         prev = self.symbol_env.find(proc_id_node.name)
         if prev:
@@ -209,7 +210,7 @@ class Context:
         else:
             s = ProcedureSymbol(proc_id_node.name, ret_type,
                                 start_label=start_label, num_args=num_args)
-            self.symbol_env.add_local(proc_id_node.name, s)
+            self.symbol_env.add_local(proc_id_node.name, s, level=display_level)
             return s
 
 

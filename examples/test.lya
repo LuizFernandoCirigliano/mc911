@@ -1,8 +1,7 @@
-p1:proc (t int) returns (int);
-  print(102);
-  return 153;
+p1:proc (t,x,y int) returns (int);
+  return t + 1;
 end;
 
 dcl a int;
-a = p1(55);
+a = p1(55,10,20);
 //print(a);

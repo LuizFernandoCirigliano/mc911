@@ -185,20 +185,19 @@ class Identifier(Node):
         self.issues = []
         if self.usage == IdentifierUsage.DECLARATION:
             return True
-        symbol = cur_context.symbol_env.lookup(self.name)
-        valid = symbol is not None
-        if not valid:
+        self.symbol = cur_context.symbol_env.lookup(self.name)
+        if self.symbol is None:
             self.issues.append(errors.UndeclaredVariable(self.name))
-        return valid
+            return False
+        return True
 
     def get_symbol(self) -> Symbol:
         return cur_context.symbol_env.lookup(self.name) or void_symbol
 
     def lvm_operators_pos(self):
         if self.usage == IdentifierUsage.VALUE_USAGE:
-            symbol = self.get_symbol()
-            if symbol.category == SymbolCategory.VARIABLE:
-                return [LVM.LoadValueOperator(symbol.display_level, symbol.offset)]
+            if self.symbol.category == SymbolCategory.VARIABLE:
+                return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
         return []
 
 
@@ -637,7 +636,8 @@ class ProcedureDefinition(Node):
 
 
 class ProcedureStatement(Node):
-    def __init__(self, line_number, label_id: Identifier, procedure_definition: ProcedureDefinition):
+    def __init__(self, line_number, label_id: Identifier,
+                 procedure_definition: ProcedureDefinition):
         super().__init__(line_number)
         self.symbol = None
 
@@ -661,18 +661,30 @@ class ProcedureStatement(Node):
     def validation_visitor(self) -> bool:
         formal_params = self.procedure_definition.formal_parameter_list
 
-        proc_symbol = cur_context.insert_procedure(self.label_id, self.mode.expr_type, start_label=self.label_start,
-                                                   declaration=self, num_args=len(formal_params or []))
+        num_args = sum([len(param.identifier_list) for param in formal_params])\
+            if formal_params else 0
+        proc_symbol = cur_context.insert_procedure(self.label_id,
+                                                   self.mode.expr_type,
+                                                   start_label=self.label_start,
+                                                   declaration=self,
+                                                   num_args=num_args)
         cur_context.symbol_env.push(self)
         cur_context.function_stack.append(proc_symbol)
         self.symbol = proc_symbol
 
+        param_pos = 0
         if formal_params:
             for param in formal_params:
-                cur_context.insert_symbol(param.identifier_list,
-                                          param.expr_type,
-                                          SymbolCategory.VARIABLE,
-                                          self)
+                for identifier in param.identifier_list:
+                    s = VarSymbol(identifier.name, param.expr_type,
+                                  SymbolCategory.VARIABLE, self)
+                    cur_context.symbol_env.add_local(identifier.name, s, offset=param_pos-num_args)
+                    param_pos += 1
+                #
+                # cur_context.insert_symbol(param.identifier_list,
+                #                           param.expr_type,
+                #                           SymbolCategory.VARIABLE,
+                #                           self)
         valid = super().validation_visitor()
 
         cur_context.symbol_env.pop()
