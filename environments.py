@@ -28,7 +28,8 @@ class SymbolCategory(Enum):
     PROCEDURE = 1
     MODE = 2
     VARIABLE = 3
-    ACTION = 4
+    PARAM = 4
+    ACTION = 5
 
 
 class Symbol(object):
@@ -193,6 +194,7 @@ class Context:
             else:
                 s = VarSymbol(identifier.name, var_mode, category, declaration)
                 self.symbol_env.add_local(identifier.name, s)
+                identifier.symbol = s
 
         return valid_identifiers
 

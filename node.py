@@ -173,13 +173,14 @@ class Identifier(Node):
         self.display_name = 'identifier'
         self.name = name
         self.usage = IdentifierUsage.VALUE_USAGE
+        self.symbol = None
 
     def __str__(self):
         return "ID: " + self.name
 
     @property
     def expr_type(self) -> ExprType:
-        return self.get_symbol().expr_type
+        return self.symbol.expr_type
 
     def __validate_node__(self):
         self.issues = []
@@ -191,12 +192,10 @@ class Identifier(Node):
             return False
         return True
 
-    def get_symbol(self) -> Symbol:
-        return cur_context.symbol_env.lookup(self.name) or void_symbol
-
     def lvm_operators_pos(self):
         if self.usage == IdentifierUsage.VALUE_USAGE:
-            if self.symbol.category == SymbolCategory.VARIABLE:
+            if self.symbol.category == SymbolCategory.VARIABLE or\
+                    self.symbol.category == SymbolCategory.PARAM:
                 return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
         return []
 
@@ -329,8 +328,8 @@ class Declaration(IdentifierInitialization):
         ops = []
         if self.initialization:
             for identifier in self.identifier_list:
-                symbol = identifier.get_symbol()
-                ops.append(LVM.StoreValueOperator(symbol.stack_level, symbol.stack_offset))
+                symbol = identifier.symbol
+                ops.append(LVM.StoreValueOperator(symbol.display_level, symbol.offset))
         return ops
 
 
@@ -677,8 +676,8 @@ class ProcedureStatement(Node):
             for param in formal_params:
                 for identifier in param.identifier_list:
                     s = VarSymbol(identifier.name, param.expr_type,
-                                  SymbolCategory.VARIABLE, self)
-                    cur_context.symbol_env.add_local(identifier.name, s, offset=param_pos-num_args)
+                                  SymbolCategory.PARAM, self)
+                    cur_context.symbol_env.add_local(identifier.name, s, offset=param_pos-(num_args+2))
                     param_pos += 1
                 #
                 # cur_context.insert_symbol(param.identifier_list,
@@ -904,7 +903,7 @@ class AssignmentAction(Node):
         return True
 
     def lvm_operators_pos(self):
-        var = self.location.get_symbol()
+        var = self.location.symbol
         op_list = []
         if self.operator.closed_dyadic_op:
             op_list = [
@@ -934,7 +933,7 @@ class ReturnAction(Node):
 
     def lvm_operators_pos(self):
         return [
-            LVM.ReturnFromFunctionOperator(cur_context.symbol_env.scope_level() - 1, self.function_symbol.num_args)
+            LVM.ReturnFromFunctionOperator(self.function_symbol.display_level, self.function_symbol.num_args)
         ]
 
 
@@ -962,7 +961,7 @@ class FuncCallBase(Node):
         return self.identifier.expr_type
 
     def __validate_node__(self):
-        func_symbol = self.identifier.get_symbol()
+        func_symbol = self.identifier.symbol
         if type(func_symbol) is not ProcedureSymbol:
             self.issues.append(
                 errors.CallingNonCallable(self.identifier.name)
@@ -983,11 +982,11 @@ class BuiltinCall(FuncCallBase):
         self.display_name = 'builtin-call'
 
     def lvm_operators_pos(self):
-        call_symbol = self.identifier.get_symbol()
+        call_symbol = self.identifier.symbol
         op_list = []
         if call_symbol.name == 'READ':
             for arg in self.arg_list:
-                arg_symbol = arg.get_symbol()
+                arg_symbol = arg.symbol
                 if arg_symbol == string_symbol:
                     print("FALTA READ STRING")
                 else:
@@ -1015,7 +1014,7 @@ class ProcedureCall(FuncCallBase):
         ]
 
     def lvm_operators_pos(self):
-        symbol = self.identifier.get_symbol()
+        symbol = self.identifier.symbol
         return [
             LVM.CallFunctionOperator(symbol.start_label),
             # LVM.EnterFunctionOperator(symbol.display_level)

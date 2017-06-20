@@ -236,7 +236,7 @@ class ReturnFromFunctionOperator(LVMOperator):
     def execute(self, lvm):
         # TODO: TALVEZ lvm.M[lvm.D[self.op1]] = ...
         ret = lvm.M[lvm.sp]
-        lvm.sp -= 1
+        lvm.sp = lvm.D[self.op1] - 1
         lvm.D[self.op1] = lvm.M[lvm.sp]
         lvm.pc = lvm.M[lvm.sp - 1]
         lvm.sp -= self.op2 + 2
