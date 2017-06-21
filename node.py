@@ -1051,15 +1051,20 @@ class StepEnumeration(Node):
         return e
 
     def lvm_visitor(self):
+        # INITIALIZATION
         operators = self.from_exp.lvm_visitor()
-        operators += [LVM.LoadConstantOperator(-1 if self.up else 1), LVM.AddOperator()]
         operators += [LVM.StoreValueOperator(self.identifier.symbol.display_level, self.identifier.symbol.offset)]
-        if self.loop_label is not None:
-            operators += [LVM.DefineLabelOperator(self.loop_label)]
+        operators += [LVM.JumpOperator(self.loop_label + 2)]
+
+        # STEP
+        operators += [LVM.DefineLabelOperator(self.loop_label)]
         operators += [LVM.LoadValueOperator(self.identifier.symbol.display_level, self.identifier.symbol.offset)]
         operators += self.step_val.lvm_visitor() if self.step_val else [LVM.LoadConstantOperator(1 if self.up else -1)]
         operators += [LVM.AddOperator()]
         operators += [LVM.StoreValueOperator(self.identifier.symbol.display_level, self.identifier.symbol.offset)]
+
+        # COMPARE
+        operators += [LVM.DefineLabelOperator(self.loop_label + 2)]
         operators += [LVM.LoadValueOperator(self.identifier.symbol.display_level, self.identifier.symbol.offset)]
         operators += self.to_exp.lvm_visitor()
         operators += [LVM.LessOrEqualOperator()] if self.up else [LVM.GreaterOrEqualOperator()]
@@ -1130,7 +1135,7 @@ class DoAction(Node):
         self.label_number = cur_context.label_count
         if self.ctrl_part:
             self.ctrl_part.label_number = self.label_number
-        cur_context.label_count += 2
+        cur_context.label_count += 3
 
     @property
     def children(self):

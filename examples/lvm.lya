@@ -1,7 +1,7 @@
 dcl i int;
 
 do
-  for i = 5 down to 1;
+  for i = 21 by -2 down to 10;
     print(i);
 od;
 
