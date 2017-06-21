@@ -181,7 +181,7 @@ class Identifier(Node):
 
     @property
     def expr_type(self) -> ExprType:
-        return self.symbol.expr_type
+        return self.symbol.expr_type if self.symbol else void_symbol.expr_type
 
     def __validate_node__(self):
         self.issues = []
