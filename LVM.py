@@ -27,10 +27,10 @@ class LVM:
         self.pc = 0
         while self.pc < len(self.P):
             next_instr = self.P[self.pc]
-            # print(self.pc, next_instr)
+            #print(self.pc, next_instr)
             next_instr.execute(lvm=self)
             self.pc += 1
-            # print(self.stack())
+            #print(self.stack())
 
 
 class LVMOperator:
@@ -141,7 +141,7 @@ class MulOperator(BinOPOperator):
 
 class DivOperator(BinOPOperator):
     op_name = 'div'
-    operator = operator.truediv
+    operator = operator.floordiv
 
 
 class LogicalAndOperator(BinOPOperator):
@@ -341,7 +341,7 @@ class PrintMultipleValuesOperator(LVMOperator):
     op_name = "prt"
 
     def execute(self, lvm):
-        print(lvm.M[lvm.sp - self.op1 + 1:lvm.sp + 1])
+        print(' '.join(str(x) for x in lvm.M[lvm.sp - self.op1 + 1:lvm.sp + 1]))
         lvm.sp -= self.op1
 
 

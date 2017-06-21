@@ -666,7 +666,8 @@ class ProcedureStatement(Node):
                                                    self.mode.expr_type,
                                                    start_label=self.label_start,
                                                    declaration=self,
-                                                   num_args=num_args)
+                                                   num_args=num_args,
+                                                   display_level=len(cur_context))
         cur_context.symbol_env.push(self)
         cur_context.function_stack.append(proc_symbol)
         self.symbol = proc_symbol

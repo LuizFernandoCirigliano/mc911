@@ -1,24 +1,8 @@
-dcl a int = 3;
-dcl b int;
+dcl i int;
 
-if a == 1 then
-    b = 2;
-    a = 5;
-elsif a == 2 then
-    b = 3;
-    a = 6;
-else
-    b = 4;
-fi;
-print(b);
-/*
 do
   for i = 1 to 3;
     print(i);
-od;*/
-dcl i int = 1;
-do
-    while i <= 3;
-
-        i+=1;
 od;
+
+print(i);
