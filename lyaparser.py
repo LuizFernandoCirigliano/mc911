@@ -525,7 +525,7 @@ class PeterParser(object):
         identifier = p[1]
         from_exp = p[3]
         to_exp = p[6] if len(p) == 7 else p[7]
-        step_val = p[4] if len(p) == 7 else None
+        step_val = p[4] if len(p) == 8 else None
         p[0] = node.StepEnumeration(p.lexer.lineno, False, identifier, from_exp, to_exp, step_val)
 
     def p_step_value(self, p):
