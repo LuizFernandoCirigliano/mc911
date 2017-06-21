@@ -102,6 +102,14 @@ class StoreValueOperator(LVMOperator):
         lvm.sp -= 1
 
 
+class StoreReferenceValueOperator(LVMOperator):
+    op_name = 'srv'
+
+    def execute(self, lvm):
+        lvm.M[lvm.M[lvm.D[self.op1] + self.op2]] = lvm.M[lvm.sp]
+        lvm.sp -= 1
+
+
 class AllocateOperator(LVMOperator):
     op_name = 'alc'
 

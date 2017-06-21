@@ -28,8 +28,10 @@ class SymbolCategory(Enum):
     PROCEDURE = 1
     MODE = 2
     VARIABLE = 3
-    PARAM = 4
-    ACTION = 5
+    PARAM_VAL = 4
+    PARAM_REF = 5
+    ACTION = 6
+    VARIABLE_REF = 7
 
 
 class Symbol(object):
@@ -51,6 +53,10 @@ class Symbol(object):
 
     def __repr__(self):
         return "{} , name: {}, type: {}".format(self.category, self.name, self.expr_type)
+
+    @property
+    def is_reference(self):
+        return self.category == SymbolCategory.PARAM_REF or self.category == SymbolCategory.VARIABLE_REF
 
 
 class ProcedureSymbol(Symbol):

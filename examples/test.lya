@@ -1,9 +1,7 @@
-p1:proc (t,x,y int) returns (int);
-  dcl b int = t + x + y;
-  print(b);
-  return b;
+p1:proc (y int loc);
+    y = 5;
 end;
 
 dcl a int;
-a = p1(55,10,20);
+p1(a);
 print(a);

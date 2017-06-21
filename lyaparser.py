@@ -379,7 +379,7 @@ class PeterParser(object):
 
     def p_attribute(self, p):
         """attribute : LOC"""
-        p[0] = node.BasicNode(p.lexer.lineno, p[1])
+        p[0] = node.LocNode(p.lexer.lineno)
 
     def p_parameter_spec(self, p):
         """parameter_spec : mode
