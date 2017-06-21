@@ -667,7 +667,7 @@ class ProcedureStatement(Node):
                                                    start_label=self.label_start,
                                                    declaration=self,
                                                    num_args=num_args,
-                                                   display_level=len(cur_context))
+                                                   display_level=len(cur_context.function_stack) + 1)
         cur_context.symbol_env.push(self)
         cur_context.function_stack.append(proc_symbol)
         self.symbol = proc_symbol
@@ -1029,7 +1029,7 @@ class StepEnumeration(Node):
         self.display_name = "enum-up" if up else "enum-down"
         self.up = up
         self.identifier = identifier
-        self.identifier.usage = IdentifierUsage.DECLARATION
+        self.identifier.usage = IdentifierUsage.ASSIGNMENT
         self.from_exp = from_exp
         self.to_exp = to_exp
         self.step_val = step_val
@@ -1048,9 +1048,15 @@ class StepEnumeration(Node):
             e.append('step-val')
         return e
 
-    # def validation_visitor(self):
-    #     cur_context.insert_symbol([self.identifier], int_symbol.expr_type, SymbolCategory.VARIABLE, self)
-    #     return super().validation_visitor()
+    def lvm_visitor(self):
+        operators = [LVM.LoadValueOperator(self.identifier.symbol.display_level, self.identifier.symbol.offset)]
+        operators += self.step_val.lvm_visitor() if self.step_val else [LVM.LoadConstantOperator(1 if self.up else -1)]
+        operators += [LVM.AddOperator()]
+        operators += [LVM.StoreValueOperator(self.identifier.symbol.display_level, self.identifier.symbol.offset)]
+        operators += [LVM.LoadValueOperator(self.identifier.symbol.display_level, self.identifier.symbol.offset)]
+        operators += self.to_exp.lvm_visitor()
+        operators += [LVM.LessOrEqualOperator()]
+        return operators
 
 
 class RangeEnum(Node):
@@ -1097,6 +1103,9 @@ class ControlPart(Node):
             e.append('while')
         return e
 
+    def lvm_operators_pre(self):
+        return [LVM.DefineLabelOperator(self.label_number)]
+
     def lvm_operators_pos(self):
         return [LVM.JumpOnFalseOperator(self.label_number+1)]
 
@@ -1121,8 +1130,6 @@ class DoAction(Node):
             c.append(ListNode(self.action_st_list))
         return c
 
-    def lvm_operators_pre(self):
-        return [LVM.DefineLabelOperator(self.label_number)]
 
     def lvm_operators_pos(self):
         if self.ctrl_part:

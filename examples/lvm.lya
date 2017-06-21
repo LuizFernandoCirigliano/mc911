@@ -1,7 +1,7 @@
-dcl i int;
+dcl i int = 1;
 
 do
-  for i = 1 to 3;
+  for i = 1 to 5;
     print(i);
 od;
 
