@@ -992,7 +992,7 @@ class BuiltinCall(FuncCallBase):
                 else:
                     op_list += [
                         LVM.ReadValueOperator(),
-                        LVM.StoreValueOperator(arg_symbol.stack_level, arg_symbol.stack_offset)
+                        LVM.StoreValueOperator(arg_symbol.display_level, arg_symbol.offset)
                     ]
         elif call_symbol.name == 'PRINT':
             op_list += [LVM.PrintMultipleValuesOperator(len(self.arg_list))]
@@ -1137,7 +1137,7 @@ class DoAction(Node):
 class ConditionalBlock(Node):
     def __init__(self, line_number, expression, then_clause):
         super().__init__(line_number)
-        self.display_name = 'if-act'
+        self.display_name = 'cond-block'
         self.expression = expression
         self.then_clause = then_clause
         self.exit_label_number = None
@@ -1161,13 +1161,11 @@ class ConditionalBlock(Node):
 
 
 class IfAction(Node):
-    def __init__(self, line_number, expression, then_clause, elsif_list:List[ConditionalBlock]=[], else_clause=None):
+    def __init__(self, line_number, expression, then_clause, elsif_list=None, else_clause=None):
         super().__init__(line_number)
         self.display_name = 'if-act'
-        # self.expression = expression
-        # self.then_clause = then_clause
         self.if_block = ConditionalBlock(line_number, expression, then_clause)
-        self.elsif_list = elsif_list
+        self.elsif_list = elsif_list or []
         self.else_clause = else_clause
 
         self.initial_label_number = cur_context.label_count
@@ -1196,7 +1194,7 @@ class IfAction(Node):
     @property
     def labels(self):
         e = ['if']
-        if self.elsif_list:
+        if len(self.elsif_list):
             e.append('elsif')
         if self.else_clause:
             e.append('else')

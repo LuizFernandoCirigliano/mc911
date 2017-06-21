@@ -28,10 +28,10 @@ class LVM:
         while self.pc < len(self.P):
             # print(self.P[self.pc])
             next_instr = self.P[self.pc]
-            print(self.pc, next_instr)
+            # print(self.pc, next_instr)
             next_instr.execute(lvm=self)
             self.pc += 1
-            print(self.stack())
+            # print(self.stack())
 
 
 class LVMOperator:

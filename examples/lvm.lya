@@ -1,25 +1,24 @@
-/*dcl a int = 3;
+dcl a int = 3;
 dcl b int;
 
 if a == 1 then
     b = 2;
     a = 5;
-    dcl z int = 90;
-    print(z);
 elsif a == 2 then
     b = 3;
+    a = 6;
 else
     b = 4;
 fi;
 print(b);
-*/
+/*
 do
   for i = 1 to 3;
     print(i);
-od;
-/*dcl i int = 1;
+od;*/
+dcl i int = 1;
 do
     while i <= 3;
 
         i+=1;
-od;*/
+od;

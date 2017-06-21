@@ -441,12 +441,16 @@ class PeterParser(object):
                                     | CONCAT"""
         p[0] = p[1]
 
-    def p_if_action(self, p):
+    def p_if_action_elsif(self, p):
         """if_action : IF expression then_clause FI
-                     | IF expression then_clause else_clause FI
                      | IF expression then_clause elsif_clause FI
                      | IF expression then_clause elsif_clause else_clause FI"""
         p[0] = node.IfAction(p.lexer.lineno, *p[2:len(p) - 1])
+
+    def p_if_action_else(self, p):
+        """if_action : IF expression then_clause else_clause FI"""
+        p[0] = node.IfAction(p.lexer.lineno, expression=p[2], then_clause=p[3],
+                             else_clause=p[4])
 
     def p_then_clause(self, p):
         """then_clause : THEN
