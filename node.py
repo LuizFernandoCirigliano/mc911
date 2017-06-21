@@ -699,6 +699,7 @@ class ProcedureStatement(Node):
 
     def lvm_operators_pos(self):
         return [
+            LVM.ReturnFromFunctionOperator(self.symbol.display_level, self.symbol.num_args),
             LVM.DefineLabelOperator(self.label_end)
         ]
 

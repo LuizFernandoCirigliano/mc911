@@ -26,7 +26,6 @@ class LVM:
 
         self.pc = 0
         while self.pc < len(self.P):
-            # print(self.P[self.pc])
             next_instr = self.P[self.pc]
             # print(self.pc, next_instr)
             next_instr.execute(lvm=self)
