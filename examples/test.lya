@@ -1,5 +1,5 @@
 p1:proc (y int loc);
-    y = 5;
+    y = 1;
 end;
 
 dcl a int;

@@ -75,9 +75,11 @@ class Node(object):
         return pre_ops + [item for sublist in children_ops for item in sublist] + self.lvm_operators_pos()
 
     def lvm_operators_pos(self) -> List[LVM.LVMOperator]:
+        # Operators added before recursive step
         return []
 
     def lvm_operators_pre(self) -> List[LVM.LVMOperator]:
+        # Operators added after recursive step
         return []
 
     def print_error(self):
@@ -171,6 +173,7 @@ class IdentifierUsage(Enum):
     VALUE_USAGE = 0
     DECLARATION = 1
     ASSIGNMENT = 2
+    REF_USAGE = 4
 
 
 class Identifier(Node):
@@ -199,10 +202,11 @@ class Identifier(Node):
         return True
 
     def lvm_operators_pos(self):
-        if self.usage == IdentifierUsage.VALUE_USAGE:
-            if self.symbol.category == SymbolCategory.VARIABLE or\
-                    self.symbol.category == SymbolCategory.PARAM_VAL:
-                return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
+        if self.symbol and self.symbol.loads_value:
+            if self.usage == IdentifierUsage.VALUE_USAGE:
+                    return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
+            elif self.usage == IdentifierUsage.REF_USAGE:
+                return [LVM.LoadReferenceOperator(self.symbol.display_level, self.symbol.offset)]
         return []
 
 
@@ -669,27 +673,25 @@ class ProcedureStatement(Node):
     def validation_visitor(self) -> bool:
         formal_params = self.procedure_definition.formal_parameter_list
 
-        num_args = sum([len(param.identifier_list) for param in formal_params])\
-            if formal_params else 0
-        proc_symbol = cur_context.insert_procedure(self.label_id,
-                                                   self.mode.expr_type,
-                                                   start_label=self.label_start,
-                                                   declaration=self,
-                                                   num_args=num_args,
-                                                   display_level=len(cur_context.function_stack) + 1)
+        procedure_symbol = cur_context.insert_procedure(self.label_id,
+                                                        self.mode.expr_type,
+                                                        start_label=self.label_start,
+                                                        declaration=self,
+                                                        formal_params=formal_params,
+                                                        display_level=len(cur_context.function_stack) + 1)
         cur_context.symbol_env.push(self)
-        cur_context.function_stack.append(proc_symbol)
-        self.symbol = proc_symbol
+        cur_context.function_stack.append(procedure_symbol)
+        self.symbol = procedure_symbol
 
         param_pos = 0
-        if formal_params:
-            for param in formal_params:
-                for identifier in param.identifier_list:
-                    s_category = SymbolCategory.PARAM_REF if param.parameter_spec.is_reference\
-                        else SymbolCategory.PARAM_VAL
-                    s = VarSymbol(identifier.name, param.expr_type, s_category, self)
-                    cur_context.symbol_env.add_local(identifier.name, s, offset=param_pos-(num_args+2))
-                    param_pos += 1
+        for param in procedure_symbol.formal_params:
+            for identifier in param.identifier_list:
+                s_category = SymbolCategory.PARAM_REF if param.parameter_spec.is_reference\
+                    else SymbolCategory.PARAM_VAL
+                s = VarSymbol(identifier.name, param.expr_type, s_category, self)
+                identifier.usage = IdentifierUsage.DECLARATION
+                cur_context.symbol_env.add_local(identifier.name, s, offset=param_pos-(procedure_symbol.num_args+2))
+                param_pos += 1
         valid = super().validation_visitor()
 
         cur_context.symbol_env.pop()
@@ -976,12 +978,21 @@ class FuncCallBase(Node):
                 errors.CallingNonCallable(self.identifier.name)
             )
             return False
-        if func_symbol.num_args is not None and func_symbol.num_args != len(self.arg_list or []):
-            self.issues.append(
-                errors.ArgCountError(func_symbol.name, func_symbol.num_args, len(self.arg_list or []))
-            )
-            return False
-
+        if func_symbol.num_args is not None:
+            if func_symbol.num_args != len(self.arg_list or []):
+                self.issues.append(
+                    errors.ArgCountError(func_symbol.name, func_symbol.num_args, len(self.arg_list or []))
+                )
+                return False
+            else:
+                arg_number = 0
+                for formal_param in func_symbol.formal_params:
+                    for param_id in formal_param.identifier_list:
+                        if formal_param.parameter_spec.is_reference:
+                            self.arg_list[arg_number].usage = IdentifierUsage.REF_USAGE
+                        else:
+                            self.arg_list[arg_number].usage = IdentifierUsage.VALUE_USAGE
+                        arg_number += 1
         return True
 
 

@@ -27,10 +27,10 @@ class ExprType(object):
 class SymbolCategory(Enum):
     PROCEDURE = 1
     MODE = 2
-    VARIABLE = 3
+    ACTION = 3
     PARAM_VAL = 4
     PARAM_REF = 5
-    ACTION = 6
+    VARIABLE = 6
     VARIABLE_REF = 7
 
 
@@ -58,16 +58,27 @@ class Symbol(object):
     def is_reference(self):
         return self.category == SymbolCategory.PARAM_REF or self.category == SymbolCategory.VARIABLE_REF
 
+    @property
+    def loads_value(self):
+        return self.category.value >= SymbolCategory.PARAM_VAL.value
+
 
 class ProcedureSymbol(Symbol):
     def __init__(self, name, mode: ExprType,
                  start_label: int =None,
-                 num_args: int =None,
+                 formal_params: list =None,
                  builtin: bool =False):
         super().__init__(name, mode, SymbolCategory.PROCEDURE)
         self.start_label = start_label
-        self.num_args = num_args
+        self.formal_params = formal_params
         self.builtin = builtin
+
+    @property
+    def num_args(self):
+        if self.formal_params:
+            return sum([len(param.identifier_list) for param in self.formal_params])
+        else:
+            return None
 
 
 class BuiltinSymbol(Symbol):
@@ -171,11 +182,11 @@ class Context:
             string_symbol.name: string_symbol,
             bool_symbol.name: bool_symbol,
             void_symbol.name: void_symbol,
-            'ABS': ProcedureSymbol('ABS', int_symbol.expr_type, builtin=True, num_args=1),
-            'ASC': ProcedureSymbol('ASC', int_symbol.expr_type, builtin=True, num_args=1),
-            'UPPER': ProcedureSymbol('UPPER', int_symbol.expr_type, builtin=True, num_args=1),
-            'LOWER': ProcedureSymbol('LOWER', int_symbol.expr_type, builtin=True, num_args=1),
-            'NUM': ProcedureSymbol('NUM', int_symbol.expr_type, builtin=True, num_args=1),
+            'ABS': ProcedureSymbol('ABS', int_symbol.expr_type, builtin=True),
+            'ASC': ProcedureSymbol('ASC', int_symbol.expr_type, builtin=True),
+            'UPPER': ProcedureSymbol('UPPER', int_symbol.expr_type, builtin=True),
+            'LOWER': ProcedureSymbol('LOWER', int_symbol.expr_type, builtin=True),
+            'NUM': ProcedureSymbol('NUM', int_symbol.expr_type, builtin=True),
             'READ': ProcedureSymbol('READ', void_symbol.expr_type, builtin=True),
             'PRINT': ProcedureSymbol('PRINT', void_symbol.expr_type, builtin=True),
         }))
@@ -205,7 +216,7 @@ class Context:
         return valid_identifiers
 
     def insert_procedure(self, proc_id_node, ret_type: ExprType,
-                         start_label, declaration, num_args,
+                         start_label, declaration, formal_params,
                          display_level=1):
         from errors import VariableRedeclaration
         prev = self.symbol_env.find(proc_id_node.name)
@@ -217,7 +228,8 @@ class Context:
             return None
         else:
             s = ProcedureSymbol(proc_id_node.name, ret_type,
-                                start_label=start_label, num_args=num_args)
+                                start_label=start_label,
+                                formal_params=formal_params)
             self.symbol_env.add_local(proc_id_node.name, s, level=display_level)
             return s
 
