@@ -204,9 +204,15 @@ class Identifier(Node):
     def lvm_operators_pos(self):
         if self.symbol and self.symbol.loads_value:
             if self.usage == IdentifierUsage.VALUE_USAGE:
+                if self.symbol.category == SymbolCategory.VARIABLE:
                     return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
+                elif self.symbol.category == SymbolCategory.VARIABLE_REF:
+                    return [LVM.LoadReferenceValueOperator(self.symbol.display_level, self.symbol.offset)]
             elif self.usage == IdentifierUsage.REF_USAGE:
-                return [LVM.LoadReferenceOperator(self.symbol.display_level, self.symbol.offset)]
+                if self.symbol.category == SymbolCategory.VARIABLE:
+                    return [LVM.LoadReferenceOperator(self.symbol.display_level, self.symbol.offset)]
+                elif self.symbol.category == SymbolCategory.VARIABLE_REF:
+                    return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
         return []
 
 
@@ -255,6 +261,7 @@ class Spec(Node):
     @property
     def is_reference(self):
         return self.attribute is not None
+
 
 class Program(Node):
     def __init__(self, line_number, statement_list):
@@ -686,11 +693,12 @@ class ProcedureStatement(Node):
         param_pos = 0
         for param in procedure_symbol.formal_params:
             for identifier in param.identifier_list:
-                s_category = SymbolCategory.PARAM_REF if param.parameter_spec.is_reference\
-                    else SymbolCategory.PARAM_VAL
+                s_category = SymbolCategory.VARIABLE_REF if param.parameter_spec.is_reference else SymbolCategory.VARIABLE
                 s = VarSymbol(identifier.name, param.expr_type, s_category, self)
                 identifier.usage = IdentifierUsage.DECLARATION
-                cur_context.symbol_env.add_local(identifier.name, s, offset=param_pos-(procedure_symbol.num_args+2))
+                cur_context.symbol_env.add_local(identifier.name,
+                                                 s,
+                                                 offset=param_pos-(procedure_symbol.num_args+2))
                 param_pos += 1
         valid = super().validation_visitor()
 
@@ -912,15 +920,21 @@ class AssignmentAction(Node):
         return True
 
     def lvm_operators_pos(self):
-        var = self.location.symbol
+        symbol = self.location.symbol
         op_list = []
-        if self.operator.closed_dyadic_op:
-            op_list = [
-                LVM.LoadValueOperator(var.display_level, var.offset),
-            ] + op_to_instr[self.operator.closed_dyadic_op]
-        store_op = LVM.StoreReferenceValueOperator(var.display_level, var.offset)\
-            if var.is_reference else LVM.StoreValueOperator(var.display_level, var.offset)
-        return op_list + [store_op]
+        if symbol.category == SymbolCategory.VARIABLE_REF:
+            if self.operator.closed_dyadic_op:
+                op_list = [
+                    LVM.LoadReferenceValueOperator(symbol.display_level, symbol.offset),
+                ] + op_to_instr[self.operator.closed_dyadic_op]
+            op_list.append(LVM.StoreReferenceValueOperator(symbol.display_level, symbol.offset))
+        else:
+            if self.operator.closed_dyadic_op:
+                op_list = [
+                    LVM.LoadValueOperator(symbol.display_level, symbol.offset),
+                ] + op_to_instr[self.operator.closed_dyadic_op]
+            op_list.append(LVM.StoreValueOperator(symbol.display_level, symbol.offset))
+        return op_list
 
 
 class ReturnAction(Node):

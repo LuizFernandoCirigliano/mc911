@@ -1,7 +1,11 @@
 p1:proc (y int loc);
-    y = 1;
+    print(y);
+    y += 1;
+    if y < 4 then
+        p1(y);
+    fi;
 end;
 
-dcl a int;
+dcl a int = 0;
 p1(a);
-print(a);
+//print(a);

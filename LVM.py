@@ -110,6 +110,14 @@ class StoreReferenceValueOperator(LVMOperator):
         lvm.sp -= 1
 
 
+class LoadReferenceValueOperator(LVMOperator):
+    op_name = 'lrv'
+
+    def execute(self, lvm):
+        lvm.sp += 1
+        lvm.M[lvm.sp] = lvm.M[lvm.M[lvm.D[self.op1] + self.op2]]
+
+
 class AllocateOperator(LVMOperator):
     op_name = 'alc'
 

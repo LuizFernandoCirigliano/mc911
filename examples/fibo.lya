@@ -6,8 +6,10 @@ fibo: proc (n int, g int loc);
     print(g);
     return;
   else
-    h = g; fibo(n-1, h);
-    g = h; fibo(n-2, g);
+    h = g;
+    fibo(n-1, h);
+    g = h;
+    fibo(n-2, g);
   fi;
   print(n,g);
 end;

@@ -28,10 +28,8 @@ class SymbolCategory(Enum):
     PROCEDURE = 1
     MODE = 2
     ACTION = 3
-    PARAM_VAL = 4
-    PARAM_REF = 5
-    VARIABLE = 6
-    VARIABLE_REF = 7
+    VARIABLE = 4
+    VARIABLE_REF = 5
 
 
 class Symbol(object):
@@ -55,12 +53,8 @@ class Symbol(object):
         return "{} , name: {}, type: {}".format(self.category, self.name, self.expr_type)
 
     @property
-    def is_reference(self):
-        return self.category == SymbolCategory.PARAM_REF or self.category == SymbolCategory.VARIABLE_REF
-
-    @property
     def loads_value(self):
-        return self.category.value >= SymbolCategory.PARAM_VAL.value
+        return self.category == SymbolCategory.VARIABLE or self.category == SymbolCategory.VARIABLE_REF
 
 
 class ProcedureSymbol(Symbol):
