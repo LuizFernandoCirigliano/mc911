@@ -1,0 +1,28 @@
+/* Bubble sort code: */
+
+dcl n, c, d, swap  int;
+dcl v array[0:10] int;
+
+n = 5;
+do
+  for c = 0 to n-1;
+    v[c] = 50 - c;
+    print(c, v[c]);
+od;
+do
+  for c = 0 to n-2;
+    do
+      for d = 0 to n-c-2;
+        // For decreasing order use "<"
+        if v[d] > v[d+1] then
+          swap   = v[d];
+          v[d]   = v[d+1];
+          v[d+1] = swap;
+        fi;
+    od;
+od;
+print("Sorted list in ascending order:\n");
+do
+  for c = 0 to n-1;
+    print(v[c], " ");
+od;

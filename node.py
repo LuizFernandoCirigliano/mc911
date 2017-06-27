@@ -49,6 +49,10 @@ class Node(object):
     def is_valid(self):
         return self.__is_valid__
 
+    @property
+    def lvm_size(self):
+        return 1
+
     def validation_visitor(self) -> bool:
         self.issues = []
 
@@ -168,6 +172,10 @@ class BasicMode(Node):
     def expr_type(self) -> ExprType:
         return cur_context.symbol_env.lookup(self.node_type).expr_type
 
+    @property
+    def lvm_size(self):
+        return 1
+
 
 class IdentifierUsage(Enum):
     VALUE_USAGE = 0
@@ -218,6 +226,26 @@ class Identifier(Node):
                     # Se já é uma referencia, continua a mesma coisa
                     return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
         return []
+
+    def assigning_operators(self, dyadic_op):
+        symbol = self.symbol
+        op_list = []
+        if symbol.is_reference:
+            if dyadic_op:
+                op_list = [
+                    LVM.LoadReferenceValueOperator(symbol.display_level, symbol.offset),
+                ] + op_to_instr[dyadic_op]
+            op_list.append(LVM.StoreReferenceValueOperator(symbol.display_level, symbol.offset))
+        else:
+            if dyadic_op:
+                op_list = [
+                    LVM.LoadValueOperator(symbol.display_level, symbol.offset),
+                ] + op_to_instr[dyadic_op]
+            op_list.append(LVM.StoreValueOperator(symbol.display_level, symbol.offset))
+        return op_list
+
+    def level_and_offset(self):
+        return self.symbol.display_level, self.symbol.offset
 
 
 class LiteralNode(Node):
@@ -346,7 +374,7 @@ class Declaration(IdentifierInitialization):
         self.display_name = 'dcl'
 
     def lvm_operators_pre(self):
-        return [LVM.AllocateOperator(len(self.identifier_list))]
+        return [LVM.AllocateOperator(len(self.identifier_list)*self.mode_node.lvm_size)]
 
     def lvm_operators_pos(self):
         ops = []
@@ -496,7 +524,7 @@ class ReferenceMode(Node):
 
 
 class LiteralRange(Node):
-    def __init__(self, line_number, lb, ub):
+    def __init__(self, line_number, lb: LiteralNode, ub: LiteralNode):
         super().__init__(line_number)
         self.display_name = 'literal-range'
         self.lower_bound = lb
@@ -509,6 +537,14 @@ class LiteralRange(Node):
     @property
     def labels(self):
         return ['from', 'to']
+
+    @property
+    def length(self):
+        return self.upper_bound.value - self.lower_bound.value
+
+    @property
+    def lvm_size(self):
+        return 1
 
 
 class DiscreteRangeMode(Node):
@@ -526,6 +562,10 @@ class DiscreteRangeMode(Node):
     def expr_type(self):
         return ExprType("discrete range", self.mode_node.expr_type)
 
+    @property
+    def lvm_size(self):
+        return 1
+
 
 class StringMode(Node):
     def __init__(self, line_number, length):
@@ -540,6 +580,10 @@ class StringMode(Node):
     @property
     def expr_type(self):
         return string_symbol.expr_type
+
+    @property
+    def lvm_size(self):
+        return 1
 
 
 class ArrayMode(Node):
@@ -567,6 +611,13 @@ class ArrayMode(Node):
     @property
     def expr_type(self) -> ExprType:
         return ExprType("array", self.mode_node.expr_type)
+
+    @property
+    def lvm_size(self):
+        cur_size = 1
+        for dim in self.index_mode_list:
+            cur_size *= dim.length
+        return cur_size
 
 
 class NewModeStatement(Node):
@@ -791,9 +842,11 @@ class StringElement(Node):
 class ArrayElement(Node):
     def __init__(self, line_number, location, exp_list: list):
         super().__init__(line_number)
+        self.usage = IdentifierUsage.VALUE_USAGE
         self.display_name = 'array-element'
         self.location = location
         self.exp_list = exp_list
+        self.location.usage = IdentifierUsage.REF_USAGE
 
     @property
     def children(self):
@@ -808,6 +861,15 @@ class ArrayElement(Node):
         my_array_type = self.location.expr_type
         # Se tiver mais de um elemento, retorna outro array
         return my_array_type.detail if len(self.exp_list) == 1 else my_array_type
+
+    def lvm_operators_pos(self):
+        if self.usage == IdentifierUsage.VALUE_USAGE:
+            return [LVM.IndexOperator(1), LVM.LoadMultipleValuesOperator(1)]
+        else:
+            return [LVM.IndexOperator(1)]
+
+    def assigning_operators(self, dyadic_op):
+        return [LVM.StoreMultipleValuesOperator(1)]
 
 
 class ElsIf(Node):
@@ -910,7 +972,7 @@ class AssignmentAction(Node):
 
     @property
     def labels(self):
-        return ['location', 'expr']
+        return ['location', 'expression']
 
     def __str__(self):
         return str(self.operator)
@@ -924,21 +986,7 @@ class AssignmentAction(Node):
         return True
 
     def lvm_operators_pos(self):
-        symbol = self.location.symbol
-        op_list = []
-        if symbol.is_reference:
-            if self.operator.closed_dyadic_op:
-                op_list = [
-                    LVM.LoadReferenceValueOperator(symbol.display_level, symbol.offset),
-                ] + op_to_instr[self.operator.closed_dyadic_op]
-            op_list.append(LVM.StoreReferenceValueOperator(symbol.display_level, symbol.offset))
-        else:
-            if self.operator.closed_dyadic_op:
-                op_list = [
-                    LVM.LoadValueOperator(symbol.display_level, symbol.offset),
-                ] + op_to_instr[self.operator.closed_dyadic_op]
-            op_list.append(LVM.StoreValueOperator(symbol.display_level, symbol.offset))
-        return op_list
+        return self.location.assigning_operators(self.operator.closed_dyadic_op)
 
 
 class ReturnAction(Node):

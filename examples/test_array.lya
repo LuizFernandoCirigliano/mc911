@@ -1,0 +1,9 @@
+dcl a int;
+dcl v array[0:10] int;
+dcl n int = 10;
+
+do
+  for a = 0 to 3;
+    v[a] = 50 - a;
+    print(a, v[a]);
+od;
