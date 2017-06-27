@@ -228,7 +228,7 @@ class Identifier(Node):
                     return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
         return []
 
-    def assigning_operators(self, dyadic_op):
+    def assigning_operators(self, dyadic_op=None):
         symbol = self.symbol
         op_list = []
         if symbol.is_reference:
@@ -873,7 +873,7 @@ class ArrayElement(Node):
         else:
             return [LVM.IndexOperator(1)]
 
-    def assigning_operators(self, dyadic_op):
+    def assigning_operators(self, dyadic_op=None):
         return [LVM.StoreMultipleValuesOperator(1)]
 
 
@@ -1072,19 +1072,20 @@ class BuiltinCall(FuncCallBase):
         super().__init__(*args)
         self.display_name = 'builtin-call'
 
+    def __validate_node__(self):
+        if self.identifier.symbol.name == 'READ':
+            for arg in self.arg_list:
+                arg.usage = IdentifierUsage.ASSIGNMENT
+        return super().__validate_node__()
+
     def lvm_operators_pos(self):
         call_symbol = self.identifier.symbol
         op_list = []
         if call_symbol.name == 'READ':
             for arg in self.arg_list:
-                arg_symbol = arg.symbol
-                if arg_symbol == string_symbol:
-                    print("FALTA READ STRING")
-                else:
-                    op_list += [
-                        LVM.ReadValueOperator(),
-                        LVM.StoreValueOperator(arg_symbol.display_level, arg_symbol.offset)
-                    ]
+                op_list += [
+                    LVM.ReadValueOperator(),
+                ] + arg.assigning_operators()
         elif call_symbol.name == 'PRINT':
             op_list += [LVM.PrintMultipleValuesOperator(len(self.arg_list))]
         return op_list

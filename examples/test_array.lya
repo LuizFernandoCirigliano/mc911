@@ -1,5 +1,5 @@
 dcl a int;
-dcl v array[0:2] int;
+dcl v array[0:3] int;
 dcl n int = 2;
 
 do
@@ -7,3 +7,5 @@ do
     v[a] = a*5;
     print(a, v[a]);
 od;
+
+read(v[2]);
