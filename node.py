@@ -203,15 +203,19 @@ class Identifier(Node):
 
     def lvm_operators_pos(self):
         if self.symbol and self.symbol.loads_value:
-            if self.usage == IdentifierUsage.VALUE_USAGE:
-                if self.symbol.category == SymbolCategory.VARIABLE:
+            if self.usage == IdentifierUsage.VALUE_USAGE:  # Se vai usar o valor
+                if not self.symbol.is_reference:
+                    # Carrega valor
                     return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
-                elif self.symbol.category == SymbolCategory.VARIABLE_REF:
+                else:
+                    # Se for referencia, usa endereco pra carregar o valor
                     return [LVM.LoadReferenceValueOperator(self.symbol.display_level, self.symbol.offset)]
-            elif self.usage == IdentifierUsage.REF_USAGE:
-                if self.symbol.category == SymbolCategory.VARIABLE:
+            elif self.usage == IdentifierUsage.REF_USAGE:  # Vai passar uma referencia
+                if not self.symbol.is_reference:
+                    # Se é uma variável normal, pega endereco
                     return [LVM.LoadReferenceOperator(self.symbol.display_level, self.symbol.offset)]
-                elif self.symbol.category == SymbolCategory.VARIABLE_REF:
+                else:
+                    # Se já é uma referencia, continua a mesma coisa
                     return [LVM.LoadValueOperator(self.symbol.display_level, self.symbol.offset)]
         return []
 
@@ -693,7 +697,7 @@ class ProcedureStatement(Node):
         param_pos = 0
         for param in procedure_symbol.formal_params:
             for identifier in param.identifier_list:
-                s_category = SymbolCategory.VARIABLE_REF if param.parameter_spec.is_reference else SymbolCategory.VARIABLE
+                s_category = SymbolCategory.PARAM_REF if param.parameter_spec.is_reference else SymbolCategory.PARAM
                 s = VarSymbol(identifier.name, param.expr_type, s_category, self)
                 identifier.usage = IdentifierUsage.DECLARATION
                 cur_context.symbol_env.add_local(identifier.name,
@@ -922,7 +926,7 @@ class AssignmentAction(Node):
     def lvm_operators_pos(self):
         symbol = self.location.symbol
         op_list = []
-        if symbol.category == SymbolCategory.VARIABLE_REF:
+        if symbol.is_reference:
             if self.operator.closed_dyadic_op:
                 op_list = [
                     LVM.LoadReferenceValueOperator(symbol.display_level, symbol.offset),
