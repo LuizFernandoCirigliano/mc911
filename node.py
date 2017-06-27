@@ -182,6 +182,7 @@ class IdentifierUsage(Enum):
     DECLARATION = 1
     ASSIGNMENT = 2
     REF_USAGE = 4
+    PASS = 5
 
 
 class Identifier(Node):
@@ -263,7 +264,6 @@ class LiteralNode(Node):
     def expr_type(self) -> ExprType:
         return cur_context.symbol_env.lookup(self.type_name).expr_type
 
-    #TODO checar para string
     def lvm_operators_pos(self):
         return [LVM.LoadConstantOperator(self.value)]
 
@@ -342,10 +342,12 @@ class IdentifierInitialization(Node):
 
     def __validate_node__(self):
         mode_node = self.mode_node or self.initialization
+        size = self.mode_node.lvm_size if self.mode_node else 1
         valid_identifiers = cur_context.insert_symbol(self.identifier_list,
                                                       mode_node.expr_type,
                                                       SymbolCategory.VARIABLE,
-                                                      self)
+                                                      self,
+                                                      size=size)
         if not (self.initialization and self.mode_node):
             return valid_identifiers
         valid = self.mode_node.expr_type == self.initialization.expr_type
@@ -618,6 +620,9 @@ class ArrayMode(Node):
         for dim in self.index_mode_list:
             cur_size *= dim.length
         return cur_size
+
+    def lvm_visitor(self):
+        return self.mode_node.lvm_visitor()
 
 
 class NewModeStatement(Node):

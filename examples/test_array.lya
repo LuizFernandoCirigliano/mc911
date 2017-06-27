@@ -1,9 +1,9 @@
 dcl a int;
-dcl v array[0:10] int;
-dcl n int = 10;
+dcl v array[0:2] int;
+dcl n int = 2;
 
 do
-  for a = 0 to 3;
-    v[a] = 50 - a;
+  for a = 0 to n - 1;
+    v[a] = a*5;
     print(a, v[a]);
 od;

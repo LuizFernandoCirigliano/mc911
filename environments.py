@@ -36,12 +36,13 @@ class SymbolCategory(Enum):
 
 class Symbol(object):
     def __init__(self, name, mode: ExprType, category: SymbolCategory,
-                 stack_level: int=None, stack_offset: int=None):
+                 stack_level: int=None, stack_offset: int=None, size=1):
         self.name = name
         self.category = category
         self.expr_type = mode
         self.display_level = stack_level
         self.offset = stack_offset
+        self.size = size
 
     def __eq__(self, other):
         if self.category != other.category:
@@ -88,8 +89,8 @@ class BuiltinSymbol(Symbol):
 
 
 class VarSymbol(Symbol):
-    def __init__(self, name, mode: ExprType, category: SymbolCategory, declaration=None):
-        super().__init__(name, mode, category)
+    def __init__(self, name, mode: ExprType, category: SymbolCategory, declaration=None, size=1):
+        super().__init__(name, mode, category, size=size)
         self.declaration = declaration
 
 
@@ -109,14 +110,12 @@ class SymbolTable(CaseInsensitiveDict):
     def __init__(self, decl=None):
         super().__init__()
         self.decl = decl
-        self.var_count = 0
+        self.next_offset = 0
 
     def add(self, name: str, value: Symbol):
         if name in self:
             print("WARNING reassigning symbol")
         self[name] = value
-        if value.category == SymbolCategory.VARIABLE:
-            self.var_count += 1
 
     def lookup(self, name):
         return self.get(name, None)
@@ -148,9 +147,11 @@ class Environment(object):
         return len(self.stack)
 
     def add_local(self, name, symbol: Symbol, offset=None, level=None):
-        symbol.offset = offset or self.peek().var_count
+        symbol.offset = offset or self.peek().next_offset
         symbol.display_level = level or self.scope_level() - 1
         self.peek().add(name, symbol)
+        if symbol.category == SymbolCategory.VARIABLE:
+            self.peek().next_offset += symbol.size
 
     def add_root(self, name, value):
         self.root.add(name, value)
@@ -192,8 +193,12 @@ class Context:
             'PRINT': ProcedureSymbol('PRINT', void_symbol.expr_type, builtin=True),
         }))
 
-    def insert_symbol(self, var_list, var_mode: ExprType,
-                      category: SymbolCategory, declaration: object):
+    def insert_symbol(self,
+                      var_list,
+                      var_mode: ExprType,
+                      category: SymbolCategory,
+                      declaration: object,
+                      size=1):
         if var_list is None:
             return True
 
@@ -203,6 +208,7 @@ class Context:
         for identifier in var_list:
             prev = self.symbol_env.find(identifier.name)
             if prev:
+                # Verifica se variável já foi declarada
                 prev_var = self.symbol_env.lookup(identifier.name)
                 line_number = prev_var.declaration.line_number if prev_var.declaration else None
 
@@ -210,7 +216,7 @@ class Context:
                 identifier.__is_valid__ = False
                 valid_identifiers = False
             else:
-                s = VarSymbol(identifier.name, var_mode, category, declaration)
+                s = VarSymbol(identifier.name, var_mode, category, declaration, size=size)
                 self.symbol_env.add_local(identifier.name, s)
                 identifier.symbol = s
 
